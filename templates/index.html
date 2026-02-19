@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% block title %}MoodSync — Detect Your Mood{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="hero-content">
+        <h1 class="hero-title">
+            <span class="gradient-text">Discover Your Mood</span>
+            <br>Get Perfect Recommendations
+        </h1>
+        <p class="hero-subtitle">
+            Upload a photo or take a selfie, answer a few questions, and we'll recommend
+            songs & movies that match exactly how you feel.
+        </p>
+    </div>
+</section>
+
+<!-- Step Indicators -->
+<section class="steps-section">
+    <div class="steps-container">
+        <div class="step active" id="step1-indicator">
+            <div class="step-number">1</div>
+            <div class="step-label">Face Analysis</div>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" id="step2-indicator">
+            <div class="step-number">2</div>
+            <div class="step-label">Questionnaire</div>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" id="step3-indicator">
+            <div class="step-number">3</div>
+            <div class="step-label">Results</div>
+        </div>
+    </div>
+</section>
+
+<!-- Step 1: Image Upload / Webcam -->
+<section class="card-section" id="step1">
+    <div class="glass-card">
+        <h2 class="card-title">📸 Step 1: Face Emotion Analysis</h2>
+        <p class="card-description">
+            We'll analyze your facial expression using a CNN to detect your current emotion.
+        </p>
+
+        <div class="upload-options">
+            <!-- Upload Option -->
+            <div class="upload-box" id="uploadBox">
+                <div class="upload-icon">📁</div>
+                <h3>Upload Photo</h3>
+                <p>Drag & drop or click to select</p>
+                <input type="file" id="imageInput" accept="image/*" hidden>
+                <button class="btn btn-primary" onclick="document.getElementById('imageInput').click()">
+                    Choose File
+                </button>
+            </div>
+
+            <div class="upload-divider">
+                <span>OR</span>
+            </div>
+
+            <!-- Webcam Option -->
+            <div class="upload-box" id="webcamBox">
+                <div class="upload-icon">📷</div>
+                <h3>Use Webcam</h3>
+                <p>Take a live photo</p>
+                <button class="btn btn-secondary" id="startWebcam">
+                    Open Camera
+                </button>
+            </div>
+        </div>
+
+        <!-- Webcam Preview -->
+        <div class="webcam-container" id="webcamContainer" style="display:none;">
+            <video id="webcamVideo" autoplay playsinline></video>
+            <canvas id="webcamCanvas" style="display:none;"></canvas>
+            <div class="webcam-controls">
+                <button class="btn btn-primary" id="captureBtn">📸 Capture</button>
+                <button class="btn btn-ghost" id="closeWebcam">Close Camera</button>
+            </div>
+        </div>
+
+        <!-- Image Preview -->
+        <div class="image-preview" id="imagePreview" style="display:none;">
+            <img id="previewImg" src="" alt="Selected face">
+            <button class="btn btn-ghost" id="clearImage">✕ Remove</button>
+        </div>
+
+        <!-- Analysis Result -->
+        <div class="analysis-result" id="cnnResult" style="display:none;">
+            <div class="result-badge">
+                <span class="result-emoji" id="cnnEmoji"></span>
+                <span class="result-label" id="cnnEmotion"></span>
+            </div>
+            <div class="confidence-bar">
+                <div class="confidence-fill" id="cnnConfidence"></div>
+            </div>
+            <p class="confidence-text" id="cnnConfidenceText"></p>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="analysisLoading" style="display:none;">
+            <div class="spinner"></div>
+            <p>Analyzing your expression...</p>
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-message" id="uploadError" style="display:none;"></div>
+
+        <!-- Action Buttons -->
+        <div class="card-actions">
+            <button class="btn btn-ghost" id="skipImageBtn">Skip this step →</button>
+            <button class="btn btn-primary" id="proceedToQuest" style="display:none;">
+                Continue to Questionnaire →
+            </button>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ── Image Upload ──────────────────────────────────────────────
+    const imageInput = document.getElementById('imageInput');
+    const uploadBox = document.getElementById('uploadBox');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    const clearImage = document.getElementById('clearImage');
+    const cnnResult = document.getElementById('cnnResult');
+    const analysisLoading = document.getElementById('analysisLoading');
+    const uploadError = document.getElementById('uploadError');
+    const proceedBtn = document.getElementById('proceedToQuest');
+    const skipImageBtn = document.getElementById('skipImageBtn');
+
+    // Drag & drop
+    uploadBox.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadBox.classList.add('drag-over');
+    });
+    uploadBox.addEventListener('dragleave', () => {
+        uploadBox.classList.remove('drag-over');
+    });
+    uploadBox.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadBox.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) {
+            handleImageFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    imageInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleImageFile(e.target.files[0]);
+        }
+    });
+
+    function handleImageFile(file) {
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewImg.src = e.target.result;
+            imagePreview.style.display = 'block';
+            uploadBox.parentElement.querySelector('.upload-divider').style.display = 'none';
+            document.getElementById('webcamBox').style.display = 'none';
+            uploadBox.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+
+        // Upload for analysis
+        const formData = new FormData();
+        formData.append('image', file);
+        analyzeImage(formData);
+    }
+
+    clearImage.addEventListener('click', () => {
+        imagePreview.style.display = 'none';
+        cnnResult.style.display = 'none';
+        proceedBtn.style.display = 'none';
+        uploadError.style.display = 'none';
+        uploadBox.style.display = 'flex';
+        uploadBox.parentElement.querySelector('.upload-divider').style.display = 'flex';
+        document.getElementById('webcamBox').style.display = 'flex';
+        imageInput.value = '';
+    });
+
+    async function analyzeImage(formDataOrJson, isJson = false) {
+        analysisLoading.style.display = 'flex';
+        cnnResult.style.display = 'none';
+        uploadError.style.display = 'none';
+
+        try {
+            let response;
+            if (isJson) {
+                response = await fetch('/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formDataOrJson),
+                });
+            } else {
+                response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formDataOrJson,
+                });
+            }
+
+            const data = await response.json();
+            analysisLoading.style.display = 'none';
+
+            if (data.error && !data.face_found && data.face_found !== undefined) {
+                showError(data.error);
+                return;
+            }
+
+            if (data.error) {
+                showError(data.error);
+                return;
+            }
+
+            if (data.face_found) {
+                showCNNResult(data);
+            }
+        } catch (err) {
+            analysisLoading.style.display = 'none';
+            showError('Failed to analyze image. Please try again.');
+        }
+    }
+
+    const moodEmojis = {
+        happy: '😊', sad: '😢', angry: '😠',
+        neutral: '😐', excited: '🤩', stressed: '😰',
+        surprise: '😲', fear: '😨', disgust: '🤢'
+    };
+
+    function showCNNResult(data) {
+        document.getElementById('cnnEmoji').textContent = moodEmojis[data.mood] || '🎭';
+        document.getElementById('cnnEmotion').textContent =
+            `Detected: ${data.emotion.charAt(0).toUpperCase() + data.emotion.slice(1)} → Mood: ${data.mood.charAt(0).toUpperCase() + data.mood.slice(1)}`;
+        document.getElementById('cnnConfidence').style.width = data.confidence + '%';
+        document.getElementById('cnnConfidenceText').textContent =
+            `Confidence: ${data.confidence}%`;
+        cnnResult.style.display = 'block';
+        proceedBtn.style.display = 'inline-flex';
+        skipImageBtn.style.display = 'none';
+
+        // Animate
+        cnnResult.classList.add('fade-in');
+    }
+
+    function showError(msg) {
+        uploadError.textContent = msg;
+        uploadError.style.display = 'block';
+    }
+
+    // ── Webcam ───────────────────────────────────────────────────
+    const startWebcamBtn = document.getElementById('startWebcam');
+    const webcamContainer = document.getElementById('webcamContainer');
+    const webcamVideo = document.getElementById('webcamVideo');
+    const webcamCanvas = document.getElementById('webcamCanvas');
+    const captureBtn = document.getElementById('captureBtn');
+    const closeWebcamBtn = document.getElementById('closeWebcam');
+    let webcamStream = null;
+
+    startWebcamBtn.addEventListener('click', async () => {
+        try {
+            webcamStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: 640, height: 480 }
+            });
+            webcamVideo.srcObject = webcamStream;
+            webcamContainer.style.display = 'block';
+            uploadBox.style.display = 'none';
+            uploadBox.parentElement.querySelector('.upload-divider').style.display = 'none';
+            document.getElementById('webcamBox').style.display = 'none';
+        } catch (err) {
+            showError('Could not access webcam. Please try uploading an image instead.');
+        }
+    });
+
+    captureBtn.addEventListener('click', () => {
+        webcamCanvas.width = webcamVideo.videoWidth;
+        webcamCanvas.height = webcamVideo.videoHeight;
+        const ctx = webcamCanvas.getContext('2d');
+        ctx.drawImage(webcamVideo, 0, 0);
+
+        const imageData = webcamCanvas.toDataURL('image/jpeg', 0.9);
+
+        // Show preview
+        previewImg.src = imageData;
+        imagePreview.style.display = 'block';
+        webcamContainer.style.display = 'none';
+
+        // Stop webcam
+        if (webcamStream) {
+            webcamStream.getTracks().forEach(t => t.stop());
+            webcamStream = null;
+        }
+
+        // Send for analysis
+        analyzeImage({ image: imageData }, true);
+    });
+
+    closeWebcamBtn.addEventListener('click', () => {
+        webcamContainer.style.display = 'none';
+        uploadBox.style.display = 'flex';
+        uploadBox.parentElement.querySelector('.upload-divider').style.display = 'flex';
+        document.getElementById('webcamBox').style.display = 'flex';
+        if (webcamStream) {
+            webcamStream.getTracks().forEach(t => t.stop());
+            webcamStream = null;
+        }
+    });
+
+    // ── Navigation ──────────────────────────────────────────────
+    proceedBtn.addEventListener('click', () => {
+        window.location.href = '/questionnaire';
+    });
+
+    skipImageBtn.addEventListener('click', async () => {
+        await fetch('/api/skip-image', { method: 'POST' });
+        window.location.href = '/questionnaire';
+    });
+</script>
+{% endblock %}

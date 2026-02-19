@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}MoodSync — Your Recommendations{% endblock %}
+
+{% block content %}
+<!-- Step Indicators -->
+<section class="steps-section">
+    <div class="steps-container">
+        <div class="step completed">
+            <div class="step-number">✓</div>
+            <div class="step-label">Face Analysis</div>
+        </div>
+        <div class="step-connector active"></div>
+        <div class="step completed">
+            <div class="step-number">✓</div>
+            <div class="step-label">Questionnaire</div>
+        </div>
+        <div class="step-connector active"></div>
+        <div class="step active">
+            <div class="step-number">3</div>
+            <div class="step-label">Results</div>
+        </div>
+    </div>
+</section>
+
+<!-- Mood Result -->
+<section class="card-section">
+    <div class="glass-card mood-result-card">
+        <div class="mood-display">
+            <div class="mood-emoji-large">{{ mood_emoji }}</div>
+            <h2 class="mood-label">You're feeling <span class="gradient-text">{{ mood|capitalize }}</span></h2>
+            <p class="mood-confidence">Confidence: {{ confidence }}%</p>
+        </div>
+
+        <!-- Sources used -->
+        <div class="mood-sources">
+            {% if cnn_used %}
+            <div class="source-badge cnn-badge">
+                📸 Face Analysis: <strong>{{ cnn_emotion|capitalize }}</strong>
+            </div>
+            {% endif %}
+            {% if quest_used %}
+            <div class="source-badge quest-badge">
+                🧠 Questionnaire: <strong>{{ quest_mood|capitalize }}</strong>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Mood Score Bars -->
+        <div class="mood-breakdown">
+            <h3>Mood Breakdown</h3>
+            <div class="score-bars">
+                {% for mood_name, score in scores.items() %}
+                <div class="score-row">
+                    <span class="score-label">{{ mood_name|capitalize }}</span>
+                    <div class="score-bar-bg">
+                        <div class="score-bar-fill" style="width: {{ (score * 100)|round(1) }}%;"
+                            data-width="{{ (score * 100)|round(1) }}"></div>
+                    </div>
+                    <span class="score-value">{{ (score * 100)|round(1) }}%</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Song Recommendations -->
+<section class="card-section">
+    <div class="glass-card">
+        <h2 class="card-title">🎵 Recommended Songs</h2>
+        <p class="card-description">Songs that match your <strong>{{ mood }}</strong> mood</p>
+
+        <div class="recommendations-grid">
+            {% for song in songs %}
+            <div class="rec-card song-card" style="animation-delay: {{ loop.index0 * 0.1 }}s">
+                <div class="rec-icon">🎵</div>
+                <div class="rec-info">
+                    <h3 class="rec-title">{{ song.title }}</h3>
+                    <p class="rec-subtitle">{{ song.artist }}</p>
+                    <span class="rec-genre">{{ song.genre }}</span>
+                </div>
+                <a href="{{ song.youtube_url }}" target="_blank" rel="noopener" class="rec-link youtube-link">
+                    ▶ YouTube
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Movie Recommendations -->
+<section class="card-section">
+    <div class="glass-card">
+        <h2 class="card-title">🎬 Recommended Movies</h2>
+        <p class="card-description">Movies that match your <strong>{{ mood }}</strong> mood</p>
+
+        <div class="recommendations-grid">
+            {% for movie in movies %}
+            <div class="rec-card movie-card" style="animation-delay: {{ loop.index0 * 0.1 }}s">
+                <div class="rec-icon">🎬</div>
+                <div class="rec-info">
+                    <h3 class="rec-title">{{ movie.title }}</h3>
+                    <p class="rec-subtitle">{{ movie.genre }} • {{ movie.year }}</p>
+                    <span class="rec-genre">{{ movie.ott_platform }}</span>
+                </div>
+                <a href="{{ movie.ott_url }}" target="_blank" rel="noopener" class="rec-link ott-link">
+                    ▶ Watch
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Try Again -->
+<section class="card-section" style="text-align: center; padding-bottom: 3rem;">
+    <a href="/" class="btn btn-primary btn-large">🔄 Try Again</a>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Animate score bars on load
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            document.querySelectorAll('.score-bar-fill').forEach(bar => {
+                bar.style.width = bar.dataset.width + '%';
+            });
+        }, 300);
+
+        // Animate recommendation cards
+        document.querySelectorAll('.rec-card').forEach((card, i) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                card.style.transition = 'all 0.5s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 200 + i * 100);
+        });
+    });
+</script>
+{% endblock %}

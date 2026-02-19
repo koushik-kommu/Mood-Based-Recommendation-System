@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}MoodSync — How Are You Feeling?{% endblock %}
+
+{% block content %}
+<!-- Step Indicators -->
+<section class="steps-section">
+    <div class="steps-container">
+        <div class="step completed" id="step1-indicator">
+            <div class="step-number">✓</div>
+            <div class="step-label">Face Analysis</div>
+        </div>
+        <div class="step-connector active"></div>
+        <div class="step active" id="step2-indicator">
+            <div class="step-number">2</div>
+            <div class="step-label">Questionnaire</div>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" id="step3-indicator">
+            <div class="step-number">3</div>
+            <div class="step-label">Results</div>
+        </div>
+    </div>
+</section>
+
+<!-- Questionnaire -->
+<section class="card-section">
+    <div class="glass-card questionnaire-card">
+        <h2 class="card-title">🧠 Step 2: How Are You Feeling?</h2>
+        <p class="card-description">
+            Answer a few adaptive questions so we can better understand your mood.
+        </p>
+
+        <!-- Progress bar -->
+        <div class="quest-progress">
+            <div class="quest-progress-bar" id="questProgress"></div>
+        </div>
+        <p class="quest-progress-text" id="questProgressText">Question 1</p>
+
+        <!-- Question container -->
+        <div class="question-container" id="questionContainer">
+            <h3 class="question-text" id="questionText"></h3>
+            <div class="options-list" id="optionsList"></div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="questLoading" style="display:none;">
+            <div class="spinner"></div>
+            <p>Processing your responses...</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="card-actions">
+            <button class="btn btn-ghost" id="skipQuestBtn">Skip & Get Results →</button>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentQuestionId = null;
+    let responses = [];
+    let questionCount = 0;
+    const maxQuestions = 4;  // Approximate depth of our tree
+
+    // Load first question on page load
+    document.addEventListener('DOMContentLoaded', loadFirstQuestion);
+
+    async function loadFirstQuestion() {
+        try {
+            const res = await fetch('/api/first-question');
+            const question = await res.json();
+            displayQuestion(question);
+        } catch (err) {
+            console.error('Failed to load question:', err);
+        }
+    }
+
+    function displayQuestion(question) {
+        currentQuestionId = question.id;
+        questionCount++;
+
+        // Update progress
+        const progress = Math.min((questionCount / maxQuestions) * 100, 100);
+        document.getElementById('questProgress').style.width = progress + '%';
+        document.getElementById('questProgressText').textContent =
+            `Question ${questionCount}`;
+
+        // Display question text with animation
+        const container = document.getElementById('questionContainer');
+        container.classList.remove('fade-in');
+        void container.offsetWidth;  // trigger reflow
+        container.classList.add('fade-in');
+
+        document.getElementById('questionText').textContent = question.text;
+
+        // Display options
+        const optionsList = document.getElementById('optionsList');
+        optionsList.innerHTML = '';
+
+        question.options.forEach((option, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.textContent = option.text;
+            btn.style.animationDelay = `${index * 0.1}s`;
+            btn.addEventListener('click', () => selectOption(question, index, option));
+            optionsList.appendChild(btn);
+        });
+    }
+
+    async function selectOption(question, index, option) {
+        // Highlight selected option
+        document.querySelectorAll('.option-btn').forEach(btn => {
+            btn.classList.remove('selected');
+            btn.disabled = true;
+        });
+        document.querySelectorAll('.option-btn')[index].classList.add('selected');
+
+        // Record response
+        responses.push({
+            question_id: question.id,
+            option_index: index,
+        });
+
+        // Short delay for visual feedback
+        await new Promise(r => setTimeout(r, 400));
+
+        // Check if there's a next question
+        if (option.next_question_id) {
+            try {
+                const res = await fetch(`/api/question/${option.next_question_id}`);
+                const nextQuestion = await res.json();
+                displayQuestion(nextQuestion);
+            } catch (err) {
+                console.error('Failed to load next question:', err);
+                submitQuestionnaire();
+            }
+        } else {
+            // End of questionnaire
+            submitQuestionnaire();
+        }
+    }
+
+    async function submitQuestionnaire() {
+        document.getElementById('questionContainer').style.display = 'none';
+        document.getElementById('questLoading').style.display = 'flex';
+        document.getElementById('skipQuestBtn').style.display = 'none';
+
+        try {
+            const res = await fetch('/api/submit-questionnaire', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ responses }),
+            });
+            const data = await res.json();
+
+            // Navigate to results
+            window.location.href = '/results';
+        } catch (err) {
+            console.error('Failed to submit questionnaire:', err);
+            window.location.href = '/results';
+        }
+    }
+
+    // Skip questionnaire
+    document.getElementById('skipQuestBtn').addEventListener('click', async () => {
+        await fetch('/api/skip-questionnaire', { method: 'POST' });
+        window.location.href = '/results';
+    });
+</script>
+{% endblock %}
