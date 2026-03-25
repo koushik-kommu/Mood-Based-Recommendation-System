@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}MoodSync — {{ user.username }}'s Profile{% endblock %}
+
+{% block content %}
+<section class="card-section">
+    <div class="glass-card profile-card">
+        <div class="profile-header">
+            <div class="profile-avatar">
+                <span class="avatar-emoji">{{ user.username[0]|upper }}</span>
+            </div>
+            <h2 class="profile-name">{{ user.username }}</h2>
+            <p class="profile-email">{{ user.email }}</p>
+            <p class="profile-joined"><i class="fas fa-calendar-alt"></i> Joined {{ user.created_at[:10] if user.created_at else 'Recently' }}</p>
+        </div>
+
+        <div class="profile-stats">
+            <div class="stat-item">
+                <span class="stat-value" data-count="{{ stats.total_sessions }}">{{ stats.total_sessions }}</span>
+                <span class="stat-label">Sessions</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ stats.top_mood|capitalize if stats.top_mood else '—' }}</span>
+                <span class="stat-label">Top Mood</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" data-count="{{ stats.this_month }}">{{ stats.this_month }}</span>
+                <span class="stat-label">This Month</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if mood_history %}
+<!-- Mood Timeline -->
+<section class="card-section">
+    <div class="glass-card">
+        <h2 class="card-title">🕐 Mood Timeline</h2>
+        <p class="card-description">Your recent mood journey — hover for details</p>
+        <div class="mood-timeline">
+            {% for entry in mood_history[:20] %}
+            <div class="timeline-dot" title="{{ entry.mood|capitalize }} — {{ entry.timestamp[:10] }}">
+                {{ entry.emoji }}
+                <div class="tooltip">
+                    <strong>{{ entry.mood|capitalize }}</strong><br>
+                    {{ entry.timestamp[:16] }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Mood History Table -->
+<section class="card-section">
+    <div class="glass-card">
+        <h2 class="card-title">📊 Full History</h2>
+        <div class="table-wrapper">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Mood</th>
+                        <th>Source</th>
+                        <th>Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in mood_history %}
+                    <tr>
+                        <td>{{ entry.timestamp[:16] }}</td>
+                        <td>{{ entry.emoji }} {{ entry.mood|capitalize }}</td>
+                        <td>
+                            {% if entry.cnn_used and entry.quest_used %}
+                            <span class="source-badge">📸+🧠</span>
+                            {% elif entry.cnn_used %}
+                            <span class="source-badge">📸 Face</span>
+                            {% else %}
+                            <span class="source-badge">🧠 Quiz</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ entry.confidence }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% else %}
+<section class="card-section" style="text-align:center;">
+    <div class="glass-card">
+        <h2 class="card-title">🎭 No mood history yet</h2>
+        <p class="card-description">Complete your first mood analysis to start building your profile.</p>
+        <a href="/" class="btn btn-primary" style="margin-top:1rem;">Get Started →</a>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

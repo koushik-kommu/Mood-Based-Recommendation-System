@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}MoodSync — Register{% endblock %}
+
+{% block content %}
+<section class="auth-section">
+    <div class="glass-card auth-card">
+        <div class="auth-header">
+            <div class="auth-icon">✨</div>
+            <h1 class="auth-title">Create Account</h1>
+            <p class="auth-subtitle">Join MoodSync and get personalized recommendations</p>
+        </div>
+
+        <form method="POST" action="/register" class="auth-form" id="registerForm">
+            <div class="form-group">
+                <label for="username"><i class="fas fa-user"></i> Username</label>
+                <input type="text" id="username" name="username" required autocomplete="username"
+                    placeholder="Choose a username" minlength="3">
+            </div>
+
+            <div class="form-group">
+                <label for="email"><i class="fas fa-envelope"></i> Email</label>
+                <input type="email" id="email" name="email" required autocomplete="email" placeholder="your@email.com">
+            </div>
+
+            <div class="form-group">
+                <label for="password"><i class="fas fa-lock"></i> Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" required autocomplete="new-password"
+                        placeholder="Create a password" minlength="4">
+                    <button type="button" class="password-toggle" onclick="togglePassword('password')">
+                        <i class="fas fa-eye" id="password-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password"><i class="fas fa-check-circle"></i> Confirm Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="confirm_password" name="confirm_password" required
+                        autocomplete="new-password" placeholder="Confirm your password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')">
+                        <i class="fas fa-eye" id="confirm_password-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="registerSubmitBtn">
+                <i class="fas fa-user-plus"></i> Create Account
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Already have an account? <a href="/login" class="auth-link">Sign in →</a></p>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function togglePassword(id) {
+        const input = document.getElementById(id);
+        const eye = document.getElementById(id + '-eye');
+        if (input.type === 'password') {
+            input.type = 'text';
+            eye.className = 'fas fa-eye-slash';
+        } else {
+            input.type = 'password';
+            eye.className = 'fas fa-eye';
+        }
+    }
+
+    // Live password match validation
+    const pw = document.getElementById('password');
+    const cpw = document.getElementById('confirm_password');
+    cpw.addEventListener('input', () => {
+        if (cpw.value.length > 0) {
+            if (pw.value === cpw.value) {
+                cpw.classList.add('valid');
+                cpw.classList.remove('invalid');
+            } else {
+                cpw.classList.add('invalid');
+                cpw.classList.remove('valid');
+            }
+        } else {
+            cpw.classList.remove('valid', 'invalid');
+        }
+    });
+
+    // Input validation visual feedback
+    document.querySelectorAll('.auth-form input:not(#confirm_password)').forEach(input => {
+        input.addEventListener('input', function() {
+            if (this.value.length >= (this.minLength || 1)) {
+                this.classList.add('valid');
+                this.classList.remove('invalid');
+            } else if (this.value.length > 0) {
+                this.classList.add('invalid');
+                this.classList.remove('valid');
+            } else {
+                this.classList.remove('valid', 'invalid');
+            }
+        });
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', function (e) {
+        if (pw.value !== cpw.value) {
+            e.preventDefault();
+            cpw.classList.add('invalid');
+            cpw.focus();
+            return;
+        }
+        const btn = document.getElementById('registerSubmitBtn');
+        btn.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0;"></div> Creating...';
+        btn.disabled = true;
+    });
+</script>
+{% endblock %}

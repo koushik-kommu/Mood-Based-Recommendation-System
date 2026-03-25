@@ -1,6 +1,8 @@
 """
-Emotion Prediction API
+Emotion Prediction API — Enhanced v3
 Public interface for the facial emotion recognition pipeline.
+Uses 10-crop test-time augmentation with temperature scaling
+and class rebalancing for robust, calibrated predictions.
 """
 
 import os
@@ -21,6 +23,17 @@ from emotion.emotion_model import (
 # Module-level model cache
 _model = None
 
+# Minimum confidence threshold — below this, default to neutral
+MIN_CONFIDENCE = 0.20
+
+# Class rebalancing: boost under-represented emotions in FER-2013
+# (sad, fear, disgust are often under-predicted)
+CLASS_BOOST = {
+    "sad": 1.15,
+    "fear": 1.15,
+    "disgust": 1.10,
+}
+
 
 def _get_cached_model():
     """Load model once and cache it."""
@@ -31,23 +44,7 @@ def _get_cached_model():
 
 
 def predict_emotion(image_path):
-    """
-    Predict emotion from an image file.
-
-    Parameters
-    ----------
-    image_path : str
-        Path to an image file containing a face.
-
-    Returns
-    -------
-    dict with keys:
-        emotion    : str   — Predicted FER emotion label
-        mood       : str   — Mapped mood category
-        confidence : float — Confidence of the top prediction
-        mood_scores: dict  — Scores for all 6 mood categories
-        face_found : bool  — Whether a face was detected
-    """
+    """Predict emotion from an image file."""
     face_roi, original, face_coords = detect_face(image_path)
 
     if face_roi is None:
@@ -63,18 +60,7 @@ def predict_emotion(image_path):
 
 
 def predict_emotion_from_bytes(image_bytes):
-    """
-    Predict emotion from raw image bytes (webcam capture).
-
-    Parameters
-    ----------
-    image_bytes : bytes
-        Raw image data (JPEG/PNG).
-
-    Returns
-    -------
-    dict — Same structure as predict_emotion().
-    """
+    """Predict emotion from raw image bytes (webcam capture)."""
     face_roi, original, face_coords = detect_face_from_bytes(image_bytes)
 
     if face_roi is None:
@@ -89,34 +75,120 @@ def predict_emotion_from_bytes(image_bytes):
     return _classify(face_roi)
 
 
+def _rotate_image(image, angle):
+    """Rotate a 48x48 image by small angle."""
+    import cv2
+    h, w = image.shape[:2]
+    M = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
+    rotated = cv2.warpAffine(image, M, (w, h), borderMode=cv2.BORDER_REFLECT)
+    return rotated
+
+
+def _center_crop(image, crop_ratio=0.85):
+    """Extract a center crop and resize back."""
+    import cv2
+    h, w = image.shape[:2]
+    ch, cw = int(h * crop_ratio), int(w * crop_ratio)
+    y1 = (h - ch) // 2
+    x1 = (w - cw) // 2
+    cropped = image[y1:y1+ch, x1:x1+cw]
+    return cv2.resize(cropped, (w, h), interpolation=cv2.INTER_LINEAR)
+
+
+def _corner_crops(image, crop_ratio=0.85):
+    """Extract 4 corner crops and resize back."""
+    import cv2
+    h, w = image.shape[:2]
+    ch, cw = int(h * crop_ratio), int(w * crop_ratio)
+    corners = [
+        image[0:ch, 0:cw],               # top-left
+        image[0:ch, w-cw:w],             # top-right
+        image[h-ch:h, 0:cw],             # bottom-left
+        image[h-ch:h, w-cw:w],           # bottom-right
+    ]
+    return [cv2.resize(c, (w, h), interpolation=cv2.INTER_LINEAR) for c in corners]
+
+
 def _classify(face_roi):
     """
-    Run the CNN on a preprocessed 48x48 face patch.
+    Run CNN with 10-crop test-time augmentation and temperature scaling.
 
-    Parameters
-    ----------
-    face_roi : np.ndarray
-        Shape (48, 48), values in [0, 1].
+    TTA crops:
+    1. Original
+    2. Horizontally flipped
+    3. Rotated +5°
+    4. Rotated -5°
+    5. Slight brightness increase (+10%)
+    6. Slight brightness decrease (-10%)
+    7. Center crop (85%)
+    8-10. Corner crops (top-left, top-right, bottom-left)
 
-    Returns
-    -------
-    dict
+    All predictions averaged for robust, less biased results.
     """
     model = _get_cached_model()
 
-    # Reshape for model input: (1, 48, 48, 1)
-    face_input = face_roi.reshape(1, 48, 48, 1)
+    # Prepare augmented versions
+    crops = []
 
-    # Predict
-    probabilities = model.predict(face_input, verbose=0)[0]
+    # 1. Original
+    crops.append(face_roi)
 
-    # Top emotion
+    # 2. Horizontally flipped
+    crops.append(np.flip(face_roi, axis=1))
+
+    # 3. Rotated +5°
+    crops.append(_rotate_image(face_roi, 5))
+
+    # 4. Rotated -5°
+    crops.append(_rotate_image(face_roi, -5))
+
+    # 5. Slight brightness increase
+    bright = np.clip(face_roi * 1.1, 0, 1).astype(np.float32)
+    crops.append(bright)
+
+    # 6. Slight brightness decrease
+    dark = np.clip(face_roi * 0.9, 0, 1).astype(np.float32)
+    crops.append(dark)
+
+    # 7. Center crop
+    crops.append(_center_crop(face_roi, 0.85))
+
+    # 8-10. Corner crops (3 of 4)
+    corners = _corner_crops(face_roi, 0.85)
+    crops.extend(corners[:3])
+
+    # Batch predict all crops at once
+    batch = np.array([c.reshape(48, 48, 1) for c in crops])
+    all_probs = model.predict(batch, verbose=0)
+
+    # Average predictions (ensemble)
+    raw_probs = all_probs.mean(axis=0)
+
+    # Class rebalancing — boost under-represented emotions
+    boosted = raw_probs.copy()
+    for label, factor in CLASS_BOOST.items():
+        if label in EMOTION_LABELS:
+            idx = EMOTION_LABELS.index(label)
+            boosted[idx] *= factor
+    boosted = boosted / boosted.sum()  # renormalize
+
+    # Temperature scaling to sharpen confidence distribution
+    TEMPERATURE = 1.2
+    logits = np.log(boosted + 1e-10)
+    scaled = np.exp(logits / TEMPERATURE)
+    probabilities = scaled / scaled.sum()
+
     top_idx = int(np.argmax(probabilities))
     emotion = EMOTION_LABELS[top_idx]
     confidence = float(probabilities[top_idx])
-    mood = EMOTION_TO_MOOD[emotion]
 
-    # Mood scores
+    # Low confidence fallback — if below threshold, use neutral
+    if confidence < MIN_CONFIDENCE:
+        emotion = "neutral"
+        top_idx = EMOTION_LABELS.index("neutral")
+        confidence = float(probabilities[top_idx])
+
+    mood = EMOTION_TO_MOOD[emotion]
     mood_scores = emotion_to_mood_scores(probabilities)
 
     return {

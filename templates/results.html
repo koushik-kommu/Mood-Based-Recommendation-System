@@ -2,7 +2,6 @@
 {% block title %}MoodSync — Your Recommendations{% endblock %}
 
 {% block content %}
-<!-- Step Indicators -->
 <section class="steps-section">
     <div class="steps-container">
         <div class="step completed">
@@ -22,97 +21,146 @@
     </div>
 </section>
 
+<!-- Confetti Container -->
+<div class="confetti-container" id="confettiContainer"></div>
+
 <!-- Mood Result -->
 <section class="card-section">
     <div class="glass-card mood-result-card">
-        <div class="mood-display">
-            <div class="mood-emoji-large">{{ mood_emoji }}</div>
-            <h2 class="mood-label">You're feeling <span class="gradient-text">{{ mood|capitalize }}</span></h2>
-            <p class="mood-confidence">Confidence: {{ confidence }}%</p>
+        <!-- Circular Mood Gauge -->
+        <div class="mood-gauge-container">
+            <div class="mood-gauge">
+                <svg viewBox="0 0 180 180">
+                    <defs>
+                        <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#8b5cf6"/>
+                            <stop offset="100%" stop-color="#06b6d4"/>
+                        </linearGradient>
+                    </defs>
+                    <circle class="gauge-bg" cx="90" cy="90" r="80"/>
+                    <circle class="gauge-fill" cx="90" cy="90" r="80" id="gaugeCircle"/>
+                </svg>
+                <div class="gauge-center">
+                    <span class="gauge-emoji">{{ mood_emoji }}</span>
+                    <span class="gauge-percent" id="gaugePercent">{{ confidence }}%</span>
+                </div>
+            </div>
         </div>
 
-        <!-- Sources used -->
+        <h2 class="mood-label">You're feeling <span class="gradient-text">{{ mood|capitalize }}</span></h2>
+
         <div class="mood-sources">
             {% if cnn_used %}
-            <div class="source-badge cnn-badge">
-                📸 Face Analysis: <strong>{{ cnn_emotion|capitalize }}</strong>
-            </div>
+            <div class="source-badge cnn-badge">📸 Face Analysis: <strong>{{ cnn_emotion|capitalize }}</strong></div>
             {% endif %}
             {% if quest_used %}
-            <div class="source-badge quest-badge">
-                🧠 Questionnaire: <strong>{{ quest_mood|capitalize }}</strong>
-            </div>
+            <div class="source-badge quest-badge">🧠 Questionnaire: <strong>{{ quest_mood|capitalize }}</strong></div>
             {% endif %}
         </div>
 
-        <!-- Mood Score Bars -->
+        <!-- Radar Chart for Mood Breakdown -->
+        <div class="radar-container">
+            <div class="radar-chart" id="radarChart">
+                <svg viewBox="0 0 260 260" id="radarSvg">
+                    <defs>
+                        <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#8b5cf6"/>
+                            <stop offset="100%" stop-color="#06b6d4"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+        </div>
+
         <div class="mood-breakdown">
             <h3>Mood Breakdown</h3>
             <div class="score-bars">
                 {% for mood_name, score in scores.items() %}
-                <div class="score-row">
+                <div class="score-row" data-score="{{ (score * 100)|round(1) }}">
                     <span class="score-label">{{ mood_name|capitalize }}</span>
                     <div class="score-bar-bg">
-                        <div class="score-bar-fill" style="width: {{ (score * 100)|round(1) }}%;"
-                            data-width="{{ (score * 100)|round(1) }}"></div>
+                        <div class="score-bar-fill" style="width: 0%;" data-width="{{ (score * 100)|round(1) }}"></div>
                     </div>
                     <span class="score-value">{{ (score * 100)|round(1) }}%</span>
                 </div>
                 {% endfor %}
             </div>
         </div>
-    </div>
-</section>
 
-<!-- Song Recommendations -->
-<section class="card-section">
-    <div class="glass-card">
-        <h2 class="card-title">🎵 Recommended Songs</h2>
-        <p class="card-description">Songs that match your <strong>{{ mood }}</strong> mood</p>
-
-        <div class="recommendations-grid">
-            {% for song in songs %}
-            <div class="rec-card song-card" style="animation-delay: {{ loop.index0 * 0.1 }}s">
-                <div class="rec-icon">🎵</div>
-                <div class="rec-info">
-                    <h3 class="rec-title">{{ song.title }}</h3>
-                    <p class="rec-subtitle">{{ song.artist }}</p>
-                    <span class="rec-genre">{{ song.genre }}</span>
-                </div>
-                <a href="{{ song.youtube_url }}" target="_blank" rel="noopener" class="rec-link youtube-link">
-                    ▶ YouTube
-                </a>
-            </div>
-            {% endfor %}
+        <div class="share-actions">
+            <button class="btn-share" onclick="tryAgain()">🔄 Try Again</button>
+            <button class="btn-share" onclick="shareResult()">📋 Copy Result</button>
         </div>
     </div>
 </section>
 
-<!-- Movie Recommendations -->
-<section class="card-section">
-    <div class="glass-card">
-        <h2 class="card-title">🎬 Recommended Movies</h2>
-        <p class="card-description">Movies that match your <strong>{{ mood }}</strong> mood</p>
+<div class="section-divider"></div>
 
-        <div class="recommendations-grid">
-            {% for movie in movies %}
-            <div class="rec-card movie-card" style="animation-delay: {{ loop.index0 * 0.1 }}s">
-                <div class="rec-icon">🎬</div>
-                <div class="rec-info">
-                    <h3 class="rec-title">{{ movie.title }}</h3>
-                    <p class="rec-subtitle">{{ movie.genre }} • {{ movie.year }}</p>
-                    <span class="rec-genre">{{ movie.ott_platform }}</span>
+<!-- ═══ Side-by-Side Recommendations ═══ -->
+<section class="card-section">
+    <div class="results-columns">
+        <!-- Songs Column -->
+        <div class="results-col">
+            <div class="glass-card results-col-card">
+                <div class="results-col-header">
+                    <span class="results-col-icon">🎵</span>
+                    <div>
+                        <h2 class="results-col-title">Songs</h2>
+                        <p class="results-col-subtitle">{{ songs|length }} tracks for your <strong>{{ mood }}</strong> mood</p>
+                    </div>
                 </div>
-                <a href="{{ movie.ott_url }}" target="_blank" rel="noopener" class="rec-link ott-link">
-                    ▶ Watch
-                </a>
+                <div class="results-col-list">
+                    {% for song in songs %}
+                    <a href="{{ song.youtube_url }}" target="_blank" rel="noopener" class="rec-item song-item" style="animation-delay: {{ loop.index0 * 0.06 }}s">
+                        <div class="rec-item-rank">{{ loop.index }}</div>
+                        <div class="rec-item-body">
+                            <div class="rec-item-title">{{ song.title }}</div>
+                            <div class="rec-item-meta">{{ song.artist }}</div>
+                            <div class="rec-item-tags">
+                                <span class="tag tag-genre">{{ song.genre }}</span>
+                                <span class="tag tag-lang lang-{{ song.language|lower }}">{{ song.language }}</span>
+                                {% if song.rating %}<span class="tag tag-rating">⭐ {{ song.rating }}</span>{% endif %}
+                            </div>
+                        </div>
+                        <div class="rec-item-play"><i class="fab fa-youtube"></i></div>
+                    </a>
+                    {% endfor %}
+                </div>
             </div>
-            {% endfor %}
+        </div>
+
+        <!-- Movies Column -->
+        <div class="results-col">
+            <div class="glass-card results-col-card">
+                <div class="results-col-header">
+                    <span class="results-col-icon">🎬</span>
+                    <div>
+                        <h2 class="results-col-title">Movies</h2>
+                        <p class="results-col-subtitle">{{ movies|length }} picks for your <strong>{{ mood }}</strong> mood</p>
+                    </div>
+                </div>
+                <div class="results-col-list">
+                    {% for movie in movies %}
+                    <a href="{{ movie.ott_url }}" target="_blank" rel="noopener" class="rec-item movie-item" style="animation-delay: {{ loop.index0 * 0.06 }}s">
+                        <div class="rec-item-rank">{{ loop.index }}</div>
+                        <div class="rec-item-body">
+                            <div class="rec-item-title">{{ movie.title }}</div>
+                            <div class="rec-item-meta">{{ movie.genre }} • {{ movie.year }}</div>
+                            <div class="rec-item-tags">
+                                <span class="tag tag-lang lang-{{ movie.language|lower }}">{{ movie.language }}</span>
+                                {% if movie.rating %}<span class="tag tag-rating">⭐ {{ movie.rating }}</span>{% endif %}
+                                <span class="tag tag-ott ott-{{ movie.ott_platform|lower|replace(' ', '') }}">{{ movie.ott_platform }}</span>
+                            </div>
+                        </div>
+                        <div class="rec-item-play"><i class="fab fa-youtube"></i></div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
 </section>
 
-<!-- Try Again -->
 <section class="card-section" style="text-align: center; padding-bottom: 3rem;">
     <a href="/" class="btn btn-primary btn-large">🔄 Try Again</a>
 </section>
@@ -120,24 +168,169 @@
 
 {% block scripts %}
 <script>
-    // Animate score bars on load
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            document.querySelectorAll('.score-bar-fill').forEach(bar => {
-                bar.style.width = bar.dataset.width + '%';
-            });
-        }, 300);
+    const SCORES = {{ scores | tojson }};
+    const CONFIDENCE = {{ confidence }};
 
-        // Animate recommendation cards
-        document.querySelectorAll('.rec-card').forEach((card, i) => {
+    document.addEventListener('DOMContentLoaded', () => {
+        // Animate gauge circle
+        const gaugeCircle = document.getElementById('gaugeCircle');
+        if (gaugeCircle) {
+            const circumference = 2 * Math.PI * 80;
+            const offset = circumference - (CONFIDENCE / 100) * circumference;
+            setTimeout(() => { gaugeCircle.style.strokeDashoffset = offset; }, 300);
+        }
+
+        // Animate score bars with color coding
+        setTimeout(() => {
+            const bars = document.querySelectorAll('.score-bar-fill');
+            let maxVal = 0;
+            bars.forEach(bar => {
+                const val = parseFloat(bar.dataset.width);
+                if (val > maxVal) maxVal = val;
+            });
+            bars.forEach(bar => {
+                const val = parseFloat(bar.dataset.width);
+                bar.style.width = val + '%';
+                if (val === maxVal && val > 0) {
+                    bar.classList.add('top-score');
+                    bar.closest('.score-row').classList.add('active-mood');
+                } else if (val > 5) {
+                    bar.classList.add('mid-score');
+                } else {
+                    bar.classList.add('low-score');
+                }
+            });
+        }, 400);
+
+        // Staggered card entrance
+        document.querySelectorAll('.rec-item').forEach((card, i) => {
             card.style.opacity = '0';
             card.style.transform = 'translateY(20px)';
             setTimeout(() => {
-                card.style.transition = 'all 0.5s ease';
+                card.style.transition = 'opacity 0.4s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
                 card.style.opacity = '1';
                 card.style.transform = 'translateY(0)';
-            }, 200 + i * 100);
+            }, 300 + i * 60);
         });
+
+        // Counter animation for gauge percent
+        const gaugePercent = document.getElementById('gaugePercent');
+        if (gaugePercent) {
+            let current = 0;
+            const target = CONFIDENCE;
+            const step = target / 30;
+            const counter = setInterval(() => {
+                current += step;
+                if (current >= target) { current = target; clearInterval(counter); }
+                gaugePercent.textContent = current.toFixed(1) + '%';
+            }, 30);
+        }
+
+        // Draw radar chart
+        drawRadarChart(SCORES);
+
+        // Confetti celebration for high confidence
+        if (CONFIDENCE > 40) {
+            setTimeout(launchConfetti, 600);
+        }
     });
+
+    // ── Radar Chart ─────────────────────────────────────────────
+    function drawRadarChart(scores) {
+        const svg = document.getElementById('radarSvg');
+        if (!svg) return;
+        const cx = 130, cy = 130, maxR = 100;
+        const labels = Object.keys(scores).filter(k => scores[k] > 0.01);
+        if (labels.length < 3) return;
+        
+        const n = labels.length;
+        const angleStep = (2 * Math.PI) / n;
+
+        [0.25, 0.5, 0.75, 1.0].forEach(r => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', cx); circle.setAttribute('cy', cy);
+            circle.setAttribute('r', maxR * r);
+            circle.setAttribute('class', 'radar-grid');
+            svg.appendChild(circle);
+        });
+
+        const points = [];
+        labels.forEach((label, i) => {
+            const angle = angleStep * i - Math.PI / 2;
+            const x = cx + maxR * Math.cos(angle);
+            const y = cy + maxR * Math.sin(angle);
+
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', cx); line.setAttribute('y1', cy);
+            line.setAttribute('x2', x); line.setAttribute('y2', y);
+            line.setAttribute('class', 'radar-axis');
+            svg.appendChild(line);
+
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            const lx = cx + (maxR + 18) * Math.cos(angle);
+            const ly = cy + (maxR + 18) * Math.sin(angle);
+            text.setAttribute('x', lx); text.setAttribute('y', ly + 3);
+            text.setAttribute('class', 'radar-label');
+            text.textContent = label.charAt(0).toUpperCase() + label.slice(1);
+            svg.appendChild(text);
+
+            const val = Math.min(scores[label] || 0, 1);
+            const dx = cx + maxR * val * Math.cos(angle);
+            const dy = cy + maxR * val * Math.sin(angle);
+            points.push({ x: dx, y: dy });
+        });
+
+        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        const centerPoints = points.map(() => `${cx},${cy}`).join(' ');
+        polygon.setAttribute('points', centerPoints);
+        polygon.setAttribute('class', 'radar-area');
+        svg.appendChild(polygon);
+
+        setTimeout(() => {
+            polygon.setAttribute('points', points.map(p => `${p.x},${p.y}`).join(' '));
+        }, 200);
+
+        points.forEach(p => {
+            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            dot.setAttribute('cx', cx); dot.setAttribute('cy', cy);
+            dot.setAttribute('r', 4);
+            dot.setAttribute('class', 'radar-dot');
+            svg.appendChild(dot);
+            setTimeout(() => {
+                dot.setAttribute('cx', p.x); dot.setAttribute('cy', p.y);
+            }, 200);
+        });
+    }
+
+    // ── Confetti ────────────────────────────────────────────────
+    function launchConfetti() {
+        const container = document.getElementById('confettiContainer');
+        if (!container) return;
+        const colors = ['#8b5cf6', '#06b6d4', '#f472b6', '#10b981', '#f59e0b', '#ef4444'];
+        for (let i = 0; i < 50; i++) {
+            const piece = document.createElement('div');
+            piece.className = 'confetti-piece';
+            piece.style.left = Math.random() * 100 + '%';
+            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.animationDelay = Math.random() * 2 + 's';
+            piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+            piece.style.width = (6 + Math.random() * 8) + 'px';
+            piece.style.height = (6 + Math.random() * 8) + 'px';
+            container.appendChild(piece);
+        }
+        setTimeout(() => container.innerHTML = '', 5000);
+    }
+
+    function tryAgain() { window.location.href = '/'; }
+    function shareResult() {
+        const mood = '{{ mood|capitalize }}';
+        const conf = '{{ confidence }}';
+        const text = `🎭 MoodSync detected my mood as ${mood} (${conf}% confidence)! Check it out at MoodSync.`;
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = event.target.closest('.btn-share');
+            btn.textContent = '✅ Copied!';
+            setTimeout(() => { btn.innerHTML = '📋 Copy Result'; }, 2000);
+        });
+    }
 </script>
 {% endblock %}
