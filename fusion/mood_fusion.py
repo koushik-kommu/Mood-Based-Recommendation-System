@@ -5,12 +5,11 @@ Supports 10 mood categories.
 """
 
 MOOD_CATEGORIES = [
-    "happy", "sad", "angry", "neutral", "excited", "stressed",
-    "romantic", "motivational", "calm", "energetic",
+    "happy", "sad", "angry", "neutral", "excited", "stressed", "calm",
 ]
 
-DEFAULT_CNN_WEIGHT = 0.6
-DEFAULT_QUESTIONNAIRE_WEIGHT = 0.4
+DEFAULT_CNN_WEIGHT = 0.5
+DEFAULT_QUESTIONNAIRE_WEIGHT = 0.5
 
 
 def fuse_moods(cnn_mood_scores=None, questionnaire_mood_scores=None,

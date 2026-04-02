@@ -1,63 +1,130 @@
 """
-Dynamic Questionnaire Module
-Adaptive question tree with 10 mood categories.
+Dynamic Questionnaire Module — v2 (Situational / Behavioral)
+Adaptive question tree with 7 mood categories.
+
+Questions use behavioral proxies — everyday scenarios that indirectly
+reveal the user's subconscious emotional state more accurately than
+direct "how do you feel?" questions.
+
+Supported moods: happy, sad, angry, neutral, excited, stressed, calm
 """
 
+import random
+
 MOOD_CATEGORIES = [
-    "happy", "sad", "angry", "neutral", "excited", "stressed",
-    "romantic", "motivational", "calm", "energetic",
+    "happy", "sad", "angry", "neutral", "excited", "stressed", "calm",
 ]
 
-QUESTIONS = {
-    "q1": {
+# ── Question Pool (multiple variants per slot for dynamism) ──────
+
+# Level 1 — Gateway question (random from pool)
+Q1_POOL = [
+    {
         "id": "q1",
-        "text": "How would you describe your overall energy level right now?",
+        "text": "It's a free evening with no plans. What do you instinctively reach for?",
         "options": [
             {
-                "text": "Very high — I feel like I could conquer the world!",
-                "mood_scores": {"excited": 0.4, "energetic": 0.4, "happy": 0.2},
+                "text": "🎊 Call friends — let's do something fun!",
+                "mood_scores": {"excited": 0.5, "happy": 0.5},
                 "next_question_id": "q2_high_energy",
             },
             {
-                "text": "Moderate — I feel pretty balanced",
-                "mood_scores": {"neutral": 0.4, "calm": 0.3, "happy": 0.2},
+                "text": "☕ A warm drink and a quiet corner",
+                "mood_scores": {"calm": 0.5, "neutral": 0.3, "sad": 0.2},
                 "next_question_id": "q2_moderate",
             },
             {
-                "text": "Low — I feel drained or tired",
-                "mood_scores": {"sad": 0.4, "stressed": 0.3, "calm": 0.1},
+                "text": "🛌 Honestly, I'd just lie down and zone out",
+                "mood_scores": {"sad": 0.5, "stressed": 0.3, "calm": 0.2},
                 "next_question_id": "q2_low_energy",
             },
             {
-                "text": "Agitated — I feel restless or irritated",
-                "mood_scores": {"angry": 0.5, "stressed": 0.3},
+                "text": "🥊 I need to blow off some steam",
+                "mood_scores": {"angry": 0.5, "stressed": 0.4, "excited": 0.1},
                 "next_question_id": "q2_agitated",
             },
         ],
     },
+    {
+        "id": "q1",
+        "text": "You receive an unexpected message from an old friend. Your first reaction?",
+        "options": [
+            {
+                "text": "😄 Instant smile — I'm calling them right now!",
+                "mood_scores": {"happy": 0.5, "excited": 0.5},
+                "next_question_id": "q2_high_energy",
+            },
+            {
+                "text": "🤔 Hmm, interesting — I'll reply later when I feel like it",
+                "mood_scores": {"neutral": 0.5, "calm": 0.3, "happy": 0.2},
+                "next_question_id": "q2_moderate",
+            },
+            {
+                "text": "😔 It makes me nostalgic and a bit emotional",
+                "mood_scores": {"sad": 0.6, "calm": 0.4},
+                "next_question_id": "q2_low_energy",
+            },
+            {
+                "text": "😒 Not in the mood to deal with people right now",
+                "mood_scores": {"angry": 0.3, "stressed": 0.5, "neutral": 0.2},
+                "next_question_id": "q2_agitated",
+            },
+        ],
+    },
+    {
+        "id": "q1",
+        "text": "A song starts playing randomly. Which kind would match your current vibe?",
+        "options": [
+            {
+                "text": "🔥 Something with a sick beat — I need energy!",
+                "mood_scores": {"excited": 0.5, "happy": 0.5},
+                "next_question_id": "q2_high_energy",
+            },
+            {
+                "text": "🎶 Soft melody, something easy to hum along to",
+                "mood_scores": {"calm": 0.5, "neutral": 0.3, "happy": 0.2},
+                "next_question_id": "q2_moderate",
+            },
+            {
+                "text": "🎻 Something that understands my feelings right now",
+                "mood_scores": {"sad": 0.6, "stressed": 0.2, "calm": 0.2},
+                "next_question_id": "q2_low_energy",
+            },
+            {
+                "text": "🎸 Heavy, intense — match my frustration",
+                "mood_scores": {"angry": 0.5, "stressed": 0.3, "excited": 0.2},
+                "next_question_id": "q2_agitated",
+            },
+        ],
+    },
+]
+
+
+QUESTIONS = {
+    # ── Level 2 ─────────────────────────────────────────
 
     "q2_high_energy": {
         "id": "q2_high_energy",
-        "text": "What's driving your energy right now?",
+        "text": "You just got some great news. What's your next move?",
         "options": [
             {
-                "text": "Something exciting happened / is about to happen",
-                "mood_scores": {"excited": 0.5, "energetic": 0.3, "happy": 0.2},
+                "text": "🎉 Celebrate! Party mode: ON",
+                "mood_scores": {"excited": 0.6, "happy": 0.4},
                 "next_question_id": "q3_excited",
             },
             {
-                "text": "I'm just in a great mood for no particular reason",
-                "mood_scores": {"happy": 0.6, "energetic": 0.2},
+                "text": "😊 I'm just savoring the moment quietly with a big smile",
+                "mood_scores": {"happy": 0.7, "calm": 0.3},
                 "next_question_id": "q3_happy",
             },
             {
-                "text": "I feel inspired and ready to take on anything",
-                "mood_scores": {"motivational": 0.6, "energetic": 0.3},
-                "next_question_id": "q3_motivated",
+                "text": "💪 This motivates me to chase something even bigger",
+                "mood_scores": {"excited": 0.5, "happy": 0.5},
+                "next_question_id": "q3_happy",
             },
             {
-                "text": "Nervous energy — I have too much on my plate",
-                "mood_scores": {"stressed": 0.5, "energetic": 0.2},
+                "text": "😰 I'm excited but also nervous — there's so much to do",
+                "mood_scores": {"stressed": 0.5, "excited": 0.5},
                 "next_question_id": "q3_stressed",
             },
         ],
@@ -65,26 +132,26 @@ QUESTIONS = {
 
     "q2_moderate": {
         "id": "q2_moderate",
-        "text": "What are you in the mood for right now?",
+        "text": "If you could teleport anywhere right now, where would you go?",
         "options": [
             {
-                "text": "Something fun and upbeat",
-                "mood_scores": {"happy": 0.4, "energetic": 0.3, "excited": 0.2},
-                "next_question_id": "q3_happy",
-            },
-            {
-                "text": "Something romantic and dreamy",
-                "mood_scores": {"romantic": 0.7, "calm": 0.2},
-                "next_question_id": "q3_romantic",
-            },
-            {
-                "text": "Something calm and peaceful",
-                "mood_scores": {"calm": 0.5, "neutral": 0.3},
+                "text": "🏖️ A beach sunset — peaceful and beautiful",
+                "mood_scores": {"calm": 0.6, "happy": 0.4},
                 "next_question_id": "q3_calm",
             },
             {
-                "text": "Something deep and emotional",
-                "mood_scores": {"sad": 0.4, "romantic": 0.2, "neutral": 0.2},
+                "text": "🏔️ A quiet mountaintop, just me and nature",
+                "mood_scores": {"calm": 0.6, "neutral": 0.4},
+                "next_question_id": "q3_calm",
+            },
+            {
+                "text": "🎢 An amusement park — I want thrills!",
+                "mood_scores": {"excited": 0.5, "happy": 0.5},
+                "next_question_id": "q3_happy",
+            },
+            {
+                "text": "🌧️ A rainy café with a journal and deep thoughts",
+                "mood_scores": {"sad": 0.4, "calm": 0.3, "neutral": 0.3},
                 "next_question_id": "q3_sad",
             },
         ],
@@ -92,78 +159,108 @@ QUESTIONS = {
 
     "q2_low_energy": {
         "id": "q2_low_energy",
-        "text": "What best describes why you feel this way?",
+        "text": "What would comfort you most right now?",
         "options": [
             {
-                "text": "I'm going through a tough time",
-                "mood_scores": {"sad": 0.6, "stressed": 0.2},
+                "text": "🍫 Comfort food and a nostalgic movie — just let me feel it",
+                "mood_scores": {"sad": 0.6, "calm": 0.4},
                 "next_question_id": "q3_sad",
             },
             {
-                "text": "I'm just tired and want to relax",
-                "mood_scores": {"calm": 0.4, "neutral": 0.3, "stressed": 0.2},
+                "text": "🧘 Deep breaths and some silence — I need to reset",
+                "mood_scores": {"calm": 0.5, "stressed": 0.3, "neutral": 0.2},
                 "next_question_id": "q3_calm",
             },
             {
-                "text": "I feel lonely or missing someone",
-                "mood_scores": {"sad": 0.4, "romantic": 0.4},
-                "next_question_id": "q3_romantic",
+                "text": "💬 Talking to someone who truly gets me",
+                "mood_scores": {"sad": 0.4, "happy": 0.3, "calm": 0.3},
+                "next_question_id": "q3_sad",
             },
             {
-                "text": "I need something to lift my spirits",
-                "mood_scores": {"motivational": 0.5, "happy": 0.2},
-                "next_question_id": "q3_motivated",
+                "text": "🎧 Something uplifting to pull me out of this",
+                "mood_scores": {"happy": 0.5, "excited": 0.5},
+                "next_question_id": "q3_happy",
             },
         ],
     },
 
     "q2_agitated": {
         "id": "q2_agitated",
-        "text": "What's making you feel this way?",
+        "text": "Someone cuts you off in traffic. How do you respond?",
         "options": [
             {
-                "text": "Someone or something upset me",
-                "mood_scores": {"angry": 0.6, "stressed": 0.2},
+                "text": "🤬 I honk and vent — are they serious?!",
+                "mood_scores": {"angry": 0.7, "stressed": 0.3},
                 "next_question_id": "q3_angry",
             },
             {
-                "text": "Work or study pressure",
-                "mood_scores": {"stressed": 0.6, "angry": 0.2},
+                "text": "😤 I clench the steering wheel but stay quiet",
+                "mood_scores": {"stressed": 0.6, "angry": 0.4},
                 "next_question_id": "q3_stressed",
             },
             {
-                "text": "I feel frustrated with myself",
-                "mood_scores": {"angry": 0.3, "sad": 0.2, "motivational": 0.2},
-                "next_question_id": "q3_motivated",
+                "text": "😒 Whatever. I'm too tired to even care",
+                "mood_scores": {"neutral": 0.4, "sad": 0.3, "calm": 0.3},
+                "next_question_id": "q3_calm",
+            },
+            {
+                "text": "💪 I channel the frustration — gonna use this energy",
+                "mood_scores": {"excited": 0.5, "angry": 0.3, "happy": 0.2},
+                "next_question_id": "q3_excited",
             },
         ],
     },
 
     # ── Level 3 ─────────────────────────────────────────
+
     "q3_happy": {
         "id": "q3_happy",
-        "text": "How do you feel about spending time with others right now?",
+        "text": "You're at a party. What are you doing?",
         "options": [
-            {"text": "I'd love to be around people!", "mood_scores": {"happy": 0.5, "excited": 0.3, "energetic": 0.2}, "next_question_id": "q4_social"},
-            {"text": "I'm happy on my own too", "mood_scores": {"happy": 0.4, "calm": 0.3}, "next_question_id": "q4_solo"},
+            {
+                "text": "💃 Dancing like nobody's watching!",
+                "mood_scores": {"happy": 0.5, "excited": 0.5},
+                "next_question_id": "q4_social",
+            },
+            {
+                "text": "😌 Chatting with close friends in a cozy corner",
+                "mood_scores": {"happy": 0.6, "calm": 0.4},
+                "next_question_id": "q4_solo",
+            },
         ],
     },
 
     "q3_sad": {
         "id": "q3_sad",
-        "text": "Would you prefer something to cheer you up or match your mood?",
+        "text": "When you're feeling low, which of these helps more?",
         "options": [
-            {"text": "Cheer me up — I want to feel better", "mood_scores": {"happy": 0.3, "motivational": 0.3}, "next_question_id": "q4_social"},
-            {"text": "Match my mood — I want to feel understood", "mood_scores": {"sad": 0.6, "romantic": 0.2}, "next_question_id": "q4_solo"},
+            {
+                "text": "🌤️ Something that makes me laugh and forget",
+                "mood_scores": {"happy": 0.6, "excited": 0.4},
+                "next_question_id": "q4_social",
+            },
+            {
+                "text": "🌊 Something beautiful and melancholic that validates my feelings",
+                "mood_scores": {"sad": 0.7, "calm": 0.3},
+                "next_question_id": "q4_solo",
+            },
         ],
     },
 
     "q3_angry": {
         "id": "q3_angry",
-        "text": "What would help you feel better right now?",
+        "text": "You need to release tension. What sounds right?",
         "options": [
-            {"text": "Something intense to let it out", "mood_scores": {"angry": 0.4, "energetic": 0.4}, "next_question_id": "q4_intense"},
-            {"text": "Something calming to cool down", "mood_scores": {"calm": 0.5, "neutral": 0.3}, "next_question_id": "q4_solo"},
+            {
+                "text": "🥁 Something loud, fast, and aggressive",
+                "mood_scores": {"angry": 0.5, "excited": 0.5},
+                "next_question_id": "q4_intense",
+            },
+            {
+                "text": "🌿 Actually, something calming to bring me back to earth",
+                "mood_scores": {"calm": 0.6, "neutral": 0.4},
+                "next_question_id": "q4_solo",
+            },
         ],
     },
 
@@ -171,44 +268,50 @@ QUESTIONS = {
         "id": "q3_excited",
         "text": "What kind of excitement are you feeling?",
         "options": [
-            {"text": "Pumped up — adrenaline rush!", "mood_scores": {"excited": 0.5, "energetic": 0.4}, "next_question_id": "q4_intense"},
-            {"text": "Warm and joyful — life is good", "mood_scores": {"happy": 0.4, "excited": 0.3}, "next_question_id": "q4_social"},
+            {
+                "text": "⚡ Pure adrenaline — I want edge-of-seat stuff!",
+                "mood_scores": {"excited": 0.7, "happy": 0.3},
+                "next_question_id": "q4_intense",
+            },
+            {
+                "text": "☀️ Warm, buzzy joy — life is genuinely good right now",
+                "mood_scores": {"happy": 0.6, "excited": 0.4},
+                "next_question_id": "q4_social",
+            },
         ],
     },
 
     "q3_calm": {
         "id": "q3_calm",
-        "text": "What sounds most appealing right now?",
+        "text": "You have the whole afternoon to yourself. What do you choose?",
         "options": [
-            {"text": "Soft melodies and gentle stories", "mood_scores": {"calm": 0.5, "romantic": 0.3}, "next_question_id": "q4_solo"},
-            {"text": "Just unwinding and de-stressing", "mood_scores": {"calm": 0.4, "stressed": 0.3}, "next_question_id": "q4_solo"},
-        ],
-    },
-
-    "q3_romantic": {
-        "id": "q3_romantic",
-        "text": "What kind of romantic vibe do you want?",
-        "options": [
-            {"text": "Love songs and feel-good romance", "mood_scores": {"romantic": 0.6, "happy": 0.2}, "next_question_id": "q4_social"},
-            {"text": "Heartbreak and bittersweet feelings", "mood_scores": {"romantic": 0.4, "sad": 0.4}, "next_question_id": "q4_solo"},
-        ],
-    },
-
-    "q3_motivated": {
-        "id": "q3_motivated",
-        "text": "What kind of motivation do you need?",
-        "options": [
-            {"text": "Power anthems — I want to feel unstoppable", "mood_scores": {"motivational": 0.5, "energetic": 0.3}, "next_question_id": "q4_intense"},
-            {"text": "Inspiring and uplifting content", "mood_scores": {"motivational": 0.6, "happy": 0.2}, "next_question_id": "q4_social"},
+            {
+                "text": "📖 A cozy blanket and a gentle story — pure serenity",
+                "mood_scores": {"calm": 0.7, "happy": 0.3},
+                "next_question_id": "q4_solo",
+            },
+            {
+                "text": "🫖 Just breathe. Meditate. Let it all go.",
+                "mood_scores": {"calm": 0.6, "neutral": 0.4},
+                "next_question_id": "q4_solo",
+            },
         ],
     },
 
     "q3_stressed": {
         "id": "q3_stressed",
-        "text": "How would you like to cope right now?",
+        "text": "Your to-do list is overflowing. How do you cope?",
         "options": [
-            {"text": "Active distraction — keep me busy", "mood_scores": {"stressed": 0.2, "energetic": 0.4, "excited": 0.2}, "next_question_id": "q4_intense"},
-            {"text": "Gentle relaxation — help me wind down", "mood_scores": {"calm": 0.5, "stressed": 0.3}, "next_question_id": "q4_solo"},
+            {
+                "text": "🏃 Active distraction — gym, run, something physical",
+                "mood_scores": {"excited": 0.4, "stressed": 0.3, "happy": 0.3},
+                "next_question_id": "q4_intense",
+            },
+            {
+                "text": "🛀 Full shutdown mode — bath, candles, don't talk to me",
+                "mood_scores": {"calm": 0.5, "stressed": 0.3, "sad": 0.2},
+                "next_question_id": "q4_solo",
+            },
         ],
     },
 
@@ -216,51 +319,64 @@ QUESTIONS = {
         "id": "q3_neutral",
         "text": "What sounds most appealing right now?",
         "options": [
-            {"text": "Discovering something new and interesting", "mood_scores": {"neutral": 0.3, "excited": 0.3}, "next_question_id": "q4_solo"},
-            {"text": "Just unwinding and de-stressing", "mood_scores": {"calm": 0.4, "neutral": 0.3}, "next_question_id": "q4_solo"},
+            {
+                "text": "🔍 Discovering something new and interesting",
+                "mood_scores": {"neutral": 0.3, "excited": 0.4, "happy": 0.3},
+                "next_question_id": "q4_solo",
+            },
+            {
+                "text": "🌅 Just vibing, no agenda needed",
+                "mood_scores": {"calm": 0.5, "neutral": 0.5},
+                "next_question_id": "q4_solo",
+            },
         ],
     },
 
-    # ── Level 4 (final) ─────────────────────────────────
+    # ── Level 4 (Final) ─────────────────────────────────
+
     "q4_social": {
         "id": "q4_social",
-        "text": "Pick the vibe that appeals to you most:",
+        "text": "One last thing — pick the word that resonates most:",
         "options": [
-            {"text": "🎉 Party & celebration", "mood_scores": {"excited": 0.4, "energetic": 0.4, "happy": 0.2}, "next_question_id": None},
-            {"text": "😊 Feel-good & heartwarming", "mood_scores": {"happy": 0.5, "romantic": 0.2}, "next_question_id": None},
-            {"text": "💪 Motivational & empowering", "mood_scores": {"motivational": 0.6, "energetic": 0.2}, "next_question_id": None},
-            {"text": "🤝 Meaningful & thought-provoking", "mood_scores": {"neutral": 0.4, "calm": 0.3}, "next_question_id": None},
+            {"text": "🎉 Celebration", "mood_scores": {"excited": 0.5, "happy": 0.5}, "next_question_id": None},
+            {"text": "🌤️ Warmth", "mood_scores": {"happy": 0.6, "calm": 0.4}, "next_question_id": None},
+            {"text": "🚀 Ambition", "mood_scores": {"excited": 0.6, "happy": 0.4}, "next_question_id": None},
+            {"text": "🧩 Curiosity", "mood_scores": {"neutral": 0.5, "calm": 0.3, "happy": 0.2}, "next_question_id": None},
         ],
     },
 
     "q4_solo": {
         "id": "q4_solo",
-        "text": "What atmosphere do you prefer?",
+        "text": "Last question — which atmosphere calls to you?",
         "options": [
-            {"text": "🌙 Quiet and contemplative", "mood_scores": {"calm": 0.4, "neutral": 0.3}, "next_question_id": None},
-            {"text": "💕 Romantic and dreamy", "mood_scores": {"romantic": 0.7}, "next_question_id": None},
-            {"text": "🌿 Peaceful and healing", "mood_scores": {"calm": 0.5, "stressed": 0.2}, "next_question_id": None},
-            {"text": "🌅 Inspiring and uplifting", "mood_scores": {"motivational": 0.4, "happy": 0.3}, "next_question_id": None},
+            {"text": "🌙 Quiet moonlit night", "mood_scores": {"calm": 0.5, "neutral": 0.3, "sad": 0.2}, "next_question_id": None},
+            {"text": "🌿 Sunlit forest — fresh and healing", "mood_scores": {"calm": 0.6, "happy": 0.4}, "next_question_id": None},
+            {"text": "🌅 Golden sunrise — new beginnings", "mood_scores": {"happy": 0.5, "excited": 0.3, "calm": 0.2}, "next_question_id": None},
+            {"text": "🌊 Ocean waves — rhythm that grounds me", "mood_scores": {"calm": 0.6, "neutral": 0.4}, "next_question_id": None},
         ],
     },
 
     "q4_intense": {
         "id": "q4_intense",
-        "text": "What intensity level do you want?",
+        "text": "Final pick — what intensity level do you want?",
         "options": [
-            {"text": "🔥 Maximum intensity — blow off steam", "mood_scores": {"angry": 0.3, "energetic": 0.5}, "next_question_id": None},
-            {"text": "⚡ High energy but fun", "mood_scores": {"energetic": 0.4, "excited": 0.3, "happy": 0.2}, "next_question_id": None},
-            {"text": "💪 Motivational and empowering", "mood_scores": {"motivational": 0.5, "energetic": 0.3}, "next_question_id": None},
+            {"text": "🔥 Maximum — let me feel ALIVE", "mood_scores": {"angry": 0.3, "excited": 0.7}, "next_question_id": None},
+            {"text": "⚡ High energy but fun and upbeat", "mood_scores": {"excited": 0.5, "happy": 0.5}, "next_question_id": None},
+            {"text": "💪 Powerful and empowering", "mood_scores": {"excited": 0.5, "happy": 0.5}, "next_question_id": None},
         ],
     },
 }
 
 
 def get_first_question():
-    return QUESTIONS["q1"]
+    """Return a randomly selected Level 1 question for dynamism."""
+    return random.choice(Q1_POOL)
 
 def get_question(question_id):
+    """Get question by ID. For q1, return from pool randomly."""
+    if question_id == "q1":
+        return random.choice(Q1_POOL)
     return QUESTIONS.get(question_id)
 
 def get_all_question_ids():
-    return list(QUESTIONS.keys())
+    return ["q1"] + list(QUESTIONS.keys())

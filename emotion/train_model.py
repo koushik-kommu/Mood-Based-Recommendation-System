@@ -1,7 +1,11 @@
 """
-Training Script for the Emotion Recognition CNN — Enhanced v2
-Trains on FER-2013 with focal loss, class balancing, CLAHE preprocessing,
-mixup augmentation, and cosine annealing LR schedule.
+Training Script for the Emotion Recognition CNN — Enhanced v3
+Trains on FER-2013 with:
+  - Label smoothing (0.1)
+  - Class-weight balancing
+  - Strong data augmentation
+  - Cosine annealing LR with warm restarts
+  - 60 epochs with early stopping (patience=12)
 
 Usage:
     python3 -m emotion.train_model
@@ -22,6 +26,7 @@ from tensorflow.keras.callbacks import (
     EarlyStopping,
     ReduceLROnPlateau,
     LearningRateScheduler,
+    CSVLogger,
 )
 
 # Add project root
@@ -38,10 +43,7 @@ LOCAL_DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data
 # Hyper-parameters
 IMG_SIZE = 48
 BATCH_SIZE = 64
-EPOCHS = 25
-FOCAL_ALPHA = 0.25
-FOCAL_GAMMA = 2.0
-MIXUP_ALPHA = 0.2
+EPOCHS = 60
 INITIAL_LR = 0.001
 
 
@@ -72,69 +74,21 @@ def compute_class_weights(train_dir):
 
     print(f"\n📊 Class distribution:")
     for cls, count in sorted(class_counts.items()):
-        print(f"   {cls}: {count} samples")
+        pct = count / total * 100
+        print(f"   {cls:>10}: {count:5d} samples ({pct:.1f}%)")
     print(f"   Class weights: {weights}")
     return weights
 
 
-def focal_loss(alpha=FOCAL_ALPHA, gamma=FOCAL_GAMMA):
-    """
-    Focal Loss — focuses learning on hard, misclassified examples.
-    Significantly better than cross-entropy for imbalanced datasets like FER-2013.
-    """
-    def focal_loss_fn(y_true, y_pred):
-        y_pred = tf.clip_by_value(y_pred, 1e-7, 1 - 1e-7)
-        cross_entropy = -y_true * tf.math.log(y_pred)
-        weights = alpha * y_true * tf.pow(1 - y_pred, gamma)
-        return tf.reduce_sum(weights * cross_entropy, axis=-1)
-    return focal_loss_fn
-
-
 def cosine_annealing_schedule(epoch, lr):
-    """Cosine annealing with warm restarts for better convergence."""
-    T_max = 20  # restart every 20 epochs
+    """Cosine annealing with warm restarts every 20 epochs."""
+    T_max = 20
     eta_min = 1e-6
-    return eta_min + (INITIAL_LR - eta_min) * (1 + np.cos(np.pi * (epoch % T_max) / T_max)) / 2
-
-
-class MixupGenerator(tf.keras.utils.Sequence):
-    """
-    Mixup data augmentation: linearly interpolates pairs of training
-    examples and their labels, creating virtual training samples.
-    Reduces overfitting and improves generalization.
-    """
-    def __init__(self, generator, alpha=MIXUP_ALPHA):
-        self.generator = generator
-        self.alpha = alpha
-
-    def __len__(self):
-        return len(self.generator)
-
-    def __getitem__(self, index):
-        x1, y1 = self.generator[index]
-        # Get a random other batch
-        idx2 = np.random.randint(0, len(self.generator))
-        x2, y2 = self.generator[idx2]
-
-        # Match batch sizes
-        min_len = min(len(x1), len(x2))
-        x1, y1 = x1[:min_len], y1[:min_len]
-        x2, y2 = x2[:min_len], y2[:min_len]
-
-        # Mixup
-        lam = np.random.beta(self.alpha, self.alpha, size=(min_len, 1, 1, 1))
-        lam_y = lam.reshape(min_len, 1)
-        x_mixed = lam * x1 + (1 - lam) * x2
-        y_mixed = lam_y * y1 + (1 - lam_y) * y2
-
-        return x_mixed.astype(np.float32), y_mixed.astype(np.float32)
-
-    def on_epoch_end(self):
-        self.generator.on_epoch_end()
+    return float(eta_min + (INITIAL_LR - eta_min) * (1 + np.cos(np.pi * (epoch % T_max) / T_max)) / 2)
 
 
 def train():
-    """Train the enhanced emotion CNN with focal loss and mixup."""
+    """Train the enhanced emotion CNN."""
     train_dir, test_dir = find_dataset()
 
     if train_dir is None:
@@ -158,12 +112,12 @@ def train():
     # Compute class weights for imbalanced dataset
     class_weights = compute_class_weights(train_dir)
 
-    # Stronger data augmentation for training
+    # Aggressive data augmentation for training
     train_datagen = ImageDataGenerator(
         rescale=1.0 / 255.0,
-        rotation_range=25,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
+        rotation_range=30,
+        width_shift_range=0.15,
+        height_shift_range=0.15,
         horizontal_flip=True,
         zoom_range=0.2,
         shear_range=0.15,
@@ -215,16 +169,18 @@ def train():
     print(f"   Test samples:       {test_generator.samples}")
 
     num_classes = len(train_generator.class_indices)
-    
-    if os.path.exists(MODEL_PATH):
-        print(f"\n📦 Resuming from saved model: {MODEL_PATH}")
-        model = tf.keras.models.load_model(MODEL_PATH, compile=False)
-        print("   Weights loaded. Recompiling with fresh optimizer...")
+
+    # Resume from saved model if it exists, otherwise build fresh
+    RESUME_EPOCH = 0  # Set to N to resume from epoch N (loads saved model)
+    if RESUME_EPOCH > 0 and os.path.exists(MODEL_PATH):
+        print(f"\n🔄 Resuming training from epoch {RESUME_EPOCH}...")
+        print(f"   Loading saved model: {MODEL_PATH}")
+        model = tf.keras.models.load_model(MODEL_PATH)
     else:
-        print("\n🛠️ Building new CNN model...")
+        print("\n🛠️ Building new CNN model v3...")
         model = build_model(input_shape=(IMG_SIZE, IMG_SIZE, 1), num_classes=num_classes)
 
-    # Always compile with fresh optimizer to avoid variable mismatch
+    # Compile with label smoothing and Adam optimizer
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=INITIAL_LR),
         loss=tf.keras.losses.CategoricalCrossentropy(label_smoothing=0.1),
@@ -234,24 +190,28 @@ def train():
     model.summary()
 
     # Callbacks
+    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "training_log.csv")
     callbacks = [
         ModelCheckpoint(
             MODEL_PATH, monitor="val_accuracy", save_best_only=True, verbose=1
         ),
         EarlyStopping(
-            monitor="val_accuracy", patience=8, restore_best_weights=True
+            monitor="val_accuracy", patience=12, restore_best_weights=True, verbose=1
         ),
         ReduceLROnPlateau(
-            monitor="val_loss", factor=0.5, patience=3, min_lr=1e-6, verbose=1
+            monitor="val_loss", factor=0.5, patience=4, min_lr=1e-6, verbose=1
         ),
+        LearningRateScheduler(cosine_annealing_schedule, verbose=0),
+        CSVLogger(log_path, append=(RESUME_EPOCH > 0)),
     ]
 
     # Train with class weights
-    print("\n🚀 Starting training (label smoothing + class weights)...")
+    print(f"\n🚀 Starting training (epochs {RESUME_EPOCH+1}→{EPOCHS}, cosine LR, label smoothing)...")
     history = model.fit(
         train_generator,
         validation_data=val_generator,
         epochs=EPOCHS,
+        initial_epoch=RESUME_EPOCH,
         callbacks=callbacks,
         class_weight=class_weights,
         verbose=1,
@@ -280,7 +240,7 @@ def train():
             recall = tp / (tp + fn) if (tp + fn) > 0 else 0
             f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
             acc = (pred_classes[mask] == i).mean()
-            print(f"   {name:>10}: Acc={acc:.1%}  F1={f1:.3f}  ({mask.sum()} samples)")
+            print(f"   {name:>10}: Acc={acc:.1%}  P={precision:.3f}  R={recall:.3f}  F1={f1:.3f}  ({mask.sum()} samples)")
 
     print(f"\n✅ Model saved to {MODEL_PATH}")
     return history

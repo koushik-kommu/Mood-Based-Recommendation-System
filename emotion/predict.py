@@ -24,14 +24,15 @@ from emotion.emotion_model import (
 _model = None
 
 # Minimum confidence threshold — below this, default to neutral
-MIN_CONFIDENCE = 0.20
+MIN_CONFIDENCE = 0.18
 
 # Class rebalancing: boost under-represented emotions in FER-2013
-# (sad, fear, disgust are often under-predicted)
+# (sad, fear, disgust, surprise are often under-predicted)
 CLASS_BOOST = {
-    "sad": 1.15,
-    "fear": 1.15,
-    "disgust": 1.10,
+    "sad": 1.20,
+    "fear": 1.20,
+    "disgust": 1.25,
+    "surprise": 1.10,
 }
 
 
@@ -173,7 +174,8 @@ def _classify(face_roi):
     boosted = boosted / boosted.sum()  # renormalize
 
     # Temperature scaling to sharpen confidence distribution
-    TEMPERATURE = 1.2
+    # Lower temperature = sharper predictions, less neutral bias
+    TEMPERATURE = 1.1
     logits = np.log(boosted + 1e-10)
     scaled = np.exp(logits / TEMPERATURE)
     probabilities = scaled / scaled.sum()

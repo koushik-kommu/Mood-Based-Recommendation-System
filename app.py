@@ -1,7 +1,7 @@
-"""
-Mood-Based Song & Movie Recommendation System
-Flask Web Application — Main Entry Point
-"""
+# Mood Fusion: 50% CNN + 50% Questionnaire (equal weight)
+# final_score = (cnn_score * 0.5) + (question_score * 0.5)
+
+
 import os, sys, json, base64, tempfile, functools
 from flask import (
     Flask, render_template, request, jsonify, session, redirect, url_for, flash
@@ -111,8 +111,7 @@ def profile():
 
     mood_emojis = {
         "happy": "😊", "sad": "😢", "angry": "😠", "neutral": "😐",
-        "excited": "🤩", "stressed": "😰", "romantic": "💕",
-        "motivational": "💪", "calm": "🧘", "energetic": "⚡",
+        "excited": "🤩", "stressed": "😰", "calm": "🧘",
     }
 
     # Enrich history entries with derived display fields
@@ -256,8 +255,7 @@ def results():
 
     mood_emojis = {
         "happy": "😊", "sad": "😢", "angry": "😠", "neutral": "😐",
-        "excited": "🤩", "stressed": "😰", "romantic": "💕",
-        "motivational": "💪", "calm": "🧘", "energetic": "⚡",
+        "excited": "🤩", "stressed": "😰", "calm": "🧘",
     }
 
     return render_template(
@@ -291,5 +289,5 @@ def skip_questionnaire():
 
 if __name__ == "__main__":
     print("\n🎭 Mood-Based Recommendation System")
-    print("   Open http://localhost:5000 in your browser\n")
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    print("   Open http://localhost:5001 in your browser\n")
+    app.run(debug=True, host="0.0.0.0", port=5001)

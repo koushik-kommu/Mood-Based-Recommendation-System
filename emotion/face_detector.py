@@ -162,7 +162,7 @@ def _dnn_detect(color_image, conf_threshold=0.5):
 
 def preprocess_face(face_gray):
     """
-    Enhanced preprocessing pipeline v3 for emotion recognition.
+    Enhanced preprocessing pipeline v4 for emotion recognition.
     Optimised for subtle emotions (sadness, disgust, fear) that
     depend on fine muscle contrasts around the eyes and mouth.
 
@@ -171,22 +171,27 @@ def preprocess_face(face_gray):
       2. Adaptive gamma correction — normalize lighting
       3. Histogram stretching — maximise tonal range
       4. Dual CLAHE — coarse + fine contrast enhancement
-      5. Light Gaussian smoothing — suppress CLAHE artifacts
-      6. Resize to 48×48 and normalise to [0, 1]
+      5. Unsharp masking — sharpen fine facial features
+      6. Light Gaussian smoothing — suppress artifacts
+      7. Resize to 48×48 and normalise to [0, 1]
     """
     # 1. Edge-preserving denoising
     face_gray = cv2.bilateralFilter(face_gray, d=7, sigmaColor=60, sigmaSpace=60)
 
     # 2. Adaptive gamma correction (wider range for extreme lighting)
     mean_val = np.mean(face_gray)
-    if mean_val < 60:
-        gamma = 0.5          # very dark → strong brighten
-    elif mean_val < 100:
-        gamma = 0.75         # dark → moderate brighten
-    elif mean_val > 200:
-        gamma = 1.8          # very bright → strong darken
-    elif mean_val > 160:
-        gamma = 1.3          # bright → moderate darken
+    if mean_val < 50:
+        gamma = 0.45          # very dark → strong brighten
+    elif mean_val < 80:
+        gamma = 0.6           # dark → moderate brighten
+    elif mean_val < 110:
+        gamma = 0.85          # slightly dark → gentle brighten
+    elif mean_val > 210:
+        gamma = 2.0           # very bright → strong darken
+    elif mean_val > 170:
+        gamma = 1.5           # bright → moderate darken
+    elif mean_val > 140:
+        gamma = 1.2           # slightly bright → gentle darken
     else:
         gamma = 1.0
     if gamma != 1.0:
@@ -206,11 +211,16 @@ def preprocess_face(face_gray):
     clahe_fine = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     face_gray = clahe_fine.apply(face_gray)
 
-    # 5. Light Gaussian blur to suppress CLAHE noise artifacts
+    # 5. Unsharp masking — sharpen fine facial features (wrinkles, creases)
+    blurred = cv2.GaussianBlur(face_gray, (5, 5), 1.5)
+    face_gray = cv2.addWeighted(face_gray, 1.4, blurred, -0.4, 0)
+
+    # 6. Light Gaussian blur to suppress remaining noise artifacts
     face_gray = cv2.GaussianBlur(face_gray, (3, 3), 0)
 
-    # 6. Resize and normalize
+    # 7. Resize and normalize
     face_resized = cv2.resize(face_gray, TARGET_SIZE, interpolation=cv2.INTER_AREA)
     face_normalized = face_resized.astype("float32") / 255.0
 
     return face_normalized
+

@@ -1,9 +1,6 @@
-"""
-Database utility functions for the Mood Recommendation System.
-Provides connection management, query helpers, user auth, and ranked retrieval.
-"""
 import sqlite3
 import os
+import random
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -24,6 +21,12 @@ LANGUAGE_WEIGHTS = {
     "Punjabi": 2.0,
 }
 DEFAULT_LANG_WEIGHT = 1.0
+
+# Diversity jitter: random score perturbation range [0, JITTER_RANGE]
+# Higher = more diversity, lower = more deterministic ranking
+DIVERSITY_JITTER = 0.25
+# Pool multiplier: fetch this many times more items than needed
+POOL_MULTIPLIER = 3
 
 
 def get_connection():
@@ -54,8 +57,45 @@ def _score_item(item, mood_tag):
     return score
 
 
+def _diverse_select(items, mood_tag, limit):
+    """
+    Stochastic diversity sampling:
+    1. Score all items deterministically
+    2. Take a larger pool (POOL_MULTIPLIER × limit)
+    3. Add random jitter to each score
+    4. Re-sort by jittered score and return top `limit`
+
+    This ensures high-quality matches while rotating recommendations
+    so users rarely see the exact same results twice.
+    """
+    for item in items:
+        item["_base_score"] = _score_item(item, mood_tag)
+
+    # Sort by base score first
+    items.sort(key=lambda x: x["_base_score"], reverse=True)
+
+    # Take a wider pool
+    pool_size = min(len(items), limit * POOL_MULTIPLIER)
+    pool = items[:pool_size]
+
+    # Add random jitter to diversify
+    for item in pool:
+        item["_jittered"] = item["_base_score"] + random.uniform(0, DIVERSITY_JITTER)
+
+    # Re-sort by jittered score
+    pool.sort(key=lambda x: x["_jittered"], reverse=True)
+
+    # Take top N and clean up internal keys
+    result = pool[:limit]
+    for item in result:
+        item.pop("_base_score", None)
+        item.pop("_jittered", None)
+
+    return result
+
+
 def get_ranked_songs(mood_tag, limit=10):
-    """Retrieve mood-matched songs, ranked by language priority + popularity."""
+    """Retrieve mood-matched songs with stochastic diversity sampling."""
     conn = get_connection()
     cursor = conn.execute(
         "SELECT * FROM songs WHERE mood_tag = ?", (mood_tag.lower(),)
@@ -63,20 +103,11 @@ def get_ranked_songs(mood_tag, limit=10):
     songs = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
-    # Score and sort
-    for s in songs:
-        s["_score"] = _score_item(s, mood_tag)
-    songs.sort(key=lambda x: x["_score"], reverse=True)
-
-    # Return top N (remove internal score key)
-    result = songs[:limit]
-    for s in result:
-        s.pop("_score", None)
-    return result
+    return _diverse_select(songs, mood_tag, limit)
 
 
 def get_ranked_movies(mood_tag, limit=10):
-    """Retrieve mood-matched movies, ranked by language priority + popularity."""
+    """Retrieve mood-matched movies with stochastic diversity sampling."""
     conn = get_connection()
     cursor = conn.execute(
         "SELECT * FROM movies WHERE mood_tag = ?", (mood_tag.lower(),)
@@ -84,14 +115,7 @@ def get_ranked_movies(mood_tag, limit=10):
     movies = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
-    for m in movies:
-        m["_score"] = _score_item(m, mood_tag)
-    movies.sort(key=lambda x: x["_score"], reverse=True)
-
-    result = movies[:limit]
-    for m in result:
-        m.pop("_score", None)
-    return result
+    return _diverse_select(movies, mood_tag, limit)
 
 
 # Legacy compat wrappers

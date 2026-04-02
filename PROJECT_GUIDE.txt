@@ -1,0 +1,325 @@
+================================================================================
+     MOOD-BASED SONG & MOVIE RECOMMENDATION SYSTEM — COMPLETE PROJECT GUIDE
+================================================================================
+
+Project Title : Mood-Based Song and Movie Recommendation System
+                Using Image Analysis and Dynamic Questionnaire
+Author        : Kommu Koushik
+Language      : Python 3
+Framework     : Flask (Web), TensorFlow/Keras (ML)
+Database      : SQLite
+
+
+================================================================================
+  PART A — HOW TO START & RUN THE PROJECT
+================================================================================
+
+STEP 1: OPEN TERMINAL
+    Open the Terminal application on your Mac.
+
+STEP 2: NAVIGATE TO THE PROJECT FOLDER
+    cd /Users/koushik/koushik/used/project/mood
+
+STEP 3: INSTALL PYTHON DEPENDENCIES
+    Run the following command to install all required libraries:
+
+    pip3 install -r requirements.txt
+    pip3 install scipy kagglehub
+
+    This installs:
+      - flask           → Web framework
+      - tensorflow       → Deep learning (CNN model)
+      - opencv-python-headless → Face detection
+      - numpy            → Numerical computations
+      - Pillow           → Image processing
+      - scipy            → Scientific computing (used by Keras)
+      - kagglehub        → Auto-download FER-2013 dataset
+
+STEP 4: TRAIN THE CNN MODEL (One-Time Setup, ~15 minutes)
+    python3 -m emotion.train_model
+
+    What happens:
+      - Downloads FER-2013 dataset (~60 MB) from Kaggle automatically
+      - Trains a 3-layer CNN on 28,709 facial images (7 emotions)
+      - Saves the trained model to: emotion/emotion_model.h5
+      - Expected accuracy: ~60% on test set
+
+    NOTE: You can skip this step. The app will still work using only
+    the questionnaire path to detect mood.
+
+STEP 5: START THE APPLICATION
+    python3 app.py
+
+    What happens on startup:
+      - Creates the SQLite database (database/mood_recommendations.db)
+      - Creates tables: songs, movies, mood_history
+      - Seeds 60 songs and 60 movies with real links
+      - Starts the Flask server on port 5000
+
+    You will see:
+      ✅ Seeded 60 songs and 60 movies.
+      🎭 Mood-Based Recommendation System
+         Open http://localhost:5000 in your browser
+       * Running on http://127.0.0.1:5000
+
+STEP 6: OPEN THE WEB APP
+    Open any browser (Chrome, Safari, Firefox) and go to:
+    http://localhost:5000
+
+STEP 7: STOP THE SERVER
+    Go back to the terminal and press:  Ctrl + C
+
+
+================================================================================
+  PART B — HOW TO USE THE APPLICATION (User Flow)
+================================================================================
+
+The application has 3 steps:
+
+--- STEP 1: FACE EMOTION ANALYSIS (Landing Page) ---
+
+    When you open http://localhost:5000, you see the landing page.
+    You have 3 options:
+
+    Option A — Upload a Photo:
+      1. Click "Choose File"
+      2. Select a photo of a face from your computer
+      3. The CNN analyzes the facial expression
+      4. You are taken to Step 2
+
+    Option B — Use Webcam:
+      1. Click "Open Camera"
+      2. Allow browser access to your webcam
+      3. Click "Capture" to take a photo
+      4. The CNN analyzes the captured image
+      5. You are taken to Step 2
+
+    Option C — Skip:
+      1. Click "Skip this step →"
+      2. The system will use only the questionnaire for mood detection
+      3. You are taken to Step 2
+
+--- STEP 2: DYNAMIC QUESTIONNAIRE ---
+
+    You will answer 4 adaptive questions.
+
+    How it works:
+      - Question 1 is always the same (energy level)
+      - Questions 2, 3, and 4 change based on your previous answers
+      - There are 13 possible question paths
+      - Each answer carries mood scores
+
+    Example flow:
+      Q1: "How would you rate your energy level right now?"
+          → "Very high" → branches to high-energy questions
+          → "Very low"  → branches to low-energy questions
+
+      Q2-Q4: Questions adapt automatically based on your answers
+
+    After Q4, the system automatically moves to Step 3.
+
+--- STEP 3: RESULTS & RECOMMENDATIONS ---
+
+    The results page shows:
+
+    1. DETECTED MOOD
+       - Mood emoji (e.g., 🤩 Excited, 😢 Sad, 😡 Angry)
+       - Confidence percentage (e.g., 73.5%)
+       - Source badges showing which input contributed
+
+    2. MOOD BREAKDOWN
+       - Bar chart showing scores for all 6 moods:
+         Happy, Sad, Angry, Neutral, Excited, Stressed
+
+    3. SONG RECOMMENDATIONS (5 songs)
+       - Song name and artist
+       - Mood tag
+       - Clickable YouTube link
+
+    4. MOVIE RECOMMENDATIONS (5 movies)
+       - Movie name and year
+       - Genre and mood tag
+       - Clickable OTT link (Netflix, Prime Video, etc.)
+
+    5. TRY AGAIN
+       - Click "Try Again" to restart from Step 1
+
+
+================================================================================
+  PART C — PROJECT LIFECYCLE (Technical Detail)
+================================================================================
+
+PHASE 1: INITIALIZATION (Automatic)
+    When you run "python3 app.py":
+
+    1.1  Flask app is created with a secret key for session management
+    1.2  database/schema.sql is executed to create 3 tables:
+           - songs (id, title, artist, mood_tag, youtube_link)
+           - movies (id, title, year, genre, mood_tag, ott_link, platform)
+           - mood_history (id, timestamp, dominant_mood, confidence, source)
+    1.3  database/seed_data.py inserts:
+           - 60 songs (10 per mood × 6 moods) with YouTube links
+           - 60 movies (10 per mood × 6 moods) with OTT links
+    1.4  Flask server starts on http://0.0.0.0:5000 in debug mode
+
+PHASE 2: FACE ANALYSIS (When user provides an image)
+    Route: POST /upload  or  POST /api/capture
+
+    2.1  Image is received by the Flask server
+    2.2  emotion/face_detector.py runs Haar Cascade face detection
+    2.3  Detected face is:
+           - Cropped from the image
+           - Converted to grayscale
+           - Resized to 48×48 pixels
+           - Normalized (pixel values 0 to 1)
+    2.4  emotion/predict.py loads the trained CNN model
+    2.5  CNN outputs probabilities for 7 FER emotions:
+           Angry, Disgust, Fear, Happy, Neutral, Sad, Surprise
+    2.6  emotion/emotion_model.py maps 7 → 6 project moods:
+           - Happy     ← Happy
+           - Sad       ← Sad
+           - Angry     ← Angry + Disgust
+           - Neutral   ← Neutral
+           - Excited   ← Surprise
+           - Stressed  ← Fear
+    2.7  Mood scores are saved in the Flask session
+
+PHASE 3: QUESTIONNAIRE (When user answers questions)
+    Routes: GET /api/first-question → GET /api/question/<id>
+
+    3.1  questionnaire/questions.py contains a tree of 13 question nodes
+    3.2  Each node has:
+           - Question text
+           - 3-4 answer options
+           - Mood scores per option
+           - Next question ID (for branching)
+    3.3  User answers are collected client-side in JavaScript
+    3.4  After 4 questions, POST /api/submit-questionnaire is called
+    3.5  questionnaire/scorer.py aggregates all answer scores
+    3.6  Scores are normalized to sum to 1.0
+    3.7  Result is saved in the Flask session
+
+PHASE 4: MOOD FUSION
+    File: fusion/mood_fusion.py
+
+    4.1  Retrieves CNN scores and questionnaire scores from session
+    4.2  Applies weighted combination:
+           - Both available:  Final = 0.6 × CNN + 0.4 × Questionnaire
+           - Only CNN:        Final = CNN scores
+           - Only Questionnaire: Final = Questionnaire scores
+           - Neither:         Final = equal distribution (fallback)
+    4.3  The mood with the highest score becomes the "dominant mood"
+    4.4  The highest score becomes the "confidence" percentage
+
+PHASE 5: RECOMMENDATION
+    File: recommender/engine.py
+    Route: GET /results
+
+    5.1  Queries the SQLite database for the dominant mood
+    5.2  Fetches songs WHERE mood_tag = dominant_mood, LIMIT 5 (random)
+    5.3  Fetches movies WHERE mood_tag = dominant_mood, LIMIT 5 (random)
+    5.4  Logs the session to mood_history table:
+           - Timestamp, dominant mood, confidence, source (cnn/questionnaire/both)
+    5.5  Renders the results.html template with all data
+
+PHASE 6: DISPLAY & REPEAT
+    6.1  Results page shows mood, breakdown, songs, and movies
+    6.2  User can click "Try Again" to restart (clears session)
+    6.3  User can close the browser tab at any time
+
+PHASE 7: TERMINATION
+    7.1  Press Ctrl + C in the terminal
+    7.2  Flask server shuts down
+    7.3  SQLite database file remains on disk for next run
+    7.4  Trained model (emotion_model.h5) remains for next run
+    7.5  On next startup, the app detects existing data and skips seeding
+
+
+================================================================================
+  PART D — FILE-BY-FILE DESCRIPTION
+================================================================================
+
+app.py
+    Main Flask application. Defines all routes, initializes the database,
+    and orchestrates the flow between modules.
+
+requirements.txt
+    Lists all Python package dependencies needed to run the project.
+
+database/schema.sql
+    SQL script that creates the songs, movies, and mood_history tables.
+
+database/db_utils.py
+    Utility functions: get_connection(), init_db(), query_songs_by_mood(),
+    query_movies_by_mood(), log_mood_history().
+
+database/seed_data.py
+    Contains 60 songs and 60 movies with real links. Inserts them into
+    the database on first run.
+
+emotion/face_detector.py
+    Uses OpenCV Haar Cascade to detect faces in an image. Preprocesses
+    the face (grayscale, resize to 48x48, normalize) for CNN input.
+
+emotion/emotion_model.py
+    Defines the CNN architecture: 3 convolutional blocks (32→64→128 filters),
+    batch normalization, dropout, and a 256-unit dense layer. Also contains
+    the FER-to-project mood mapping function.
+
+emotion/train_model.py
+    Training script. Loads FER-2013 dataset, applies data augmentation,
+    trains the CNN for 30 epochs with early stopping and learning rate
+    reduction. Saves the best model to emotion_model.h5.
+
+emotion/predict.py
+    Public API: predict_emotion(image_path) and predict_emotion_from_bytes().
+    Loads the trained model, runs inference, and returns mood scores.
+
+questionnaire/questions.py
+    Defines the adaptive question tree. 13 question nodes with branching
+    logic. Each answer option has associated mood scores.
+
+questionnaire/scorer.py
+    Aggregates all question responses into a single mood score dictionary.
+    Normalizes scores so they sum to 1.0.
+
+fusion/mood_fusion.py
+    Combines CNN and questionnaire results using weighted averaging.
+    Handles cases where one or both inputs are missing.
+
+recommender/engine.py
+    Queries the database for mood-matched songs and movies. Returns
+    5 random items per category. Logs results to mood_history.
+
+templates/base.html
+    Base HTML template with dark theme, navigation bar, and footer.
+
+templates/index.html
+    Landing page with image upload area, webcam interface, and skip button.
+
+templates/questionnaire.html
+    Dynamic questionnaire page with progress bar and animated transitions.
+
+templates/results.html
+    Results page showing mood emoji, confidence, breakdown chart,
+    and song/movie recommendation cards.
+
+static/css/style.css
+    Complete dark-mode CSS with glassmorphism effects, gradient accents,
+    animated particles, hover effects, and responsive breakpoints.
+
+static/js/main.js
+    JavaScript for particle background animation and shared UI utilities.
+
+
+================================================================================
+  PART E — QUICK REFERENCE COMMANDS
+================================================================================
+
+Install dependencies:     pip3 install -r requirements.txt
+Train CNN model:          python3 -m emotion.train_model
+Run the application:      python3 app.py
+Open in browser:          http://localhost:5000
+Stop the server:          Ctrl + C
+
+================================================================================

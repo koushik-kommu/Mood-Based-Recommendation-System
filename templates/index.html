@@ -4,33 +4,41 @@
 {% block content %}
 <section class="hero">
     <div class="hero-content">
+        <div class="hero-badge">✨ AI-Powered Mood Detection</div>
         <h1 class="hero-title">
             <span class="gradient-text">Discover Your Mood</span>
             <br>Get Perfect Recommendations
         </h1>
         <p class="hero-subtitle">
-            Upload a photo or take a selfie, answer a few questions, and we'll recommend
+            Upload a photo or take a selfie, answer a few situational questions, and we'll recommend
             songs & movies that match exactly how you feel.
         </p>
     </div>
 </section>
 
-<!-- Feature Highlights -->
-<div class="features-grid">
-    <div class="feature-card">
-        <span class="feature-icon">🤖</span>
+<!-- Bento Feature Grid -->
+<div class="bento-grid">
+    <div class="bento-card bento-main">
+        <span class="bento-icon">🤖</span>
         <h3>AI Face Analysis</h3>
-        <p>Deep learning CNN detects emotions from your facial expression in real-time</p>
+        <p>Deep learning CNN detects emotions from your facial expression with real-time confidence scores</p>
+        <div class="bento-tag">Computer Vision</div>
     </div>
-    <div class="feature-card">
-        <span class="feature-icon">🧠</span>
+    <div class="bento-card bento-sm">
+        <span class="bento-icon">🧠</span>
         <h3>Smart Questionnaire</h3>
-        <p>Adaptive questions that dynamically adjust based on your responses</p>
+        <p>Situational questions that dynamically adapt to reveal your true emotional state</p>
     </div>
-    <div class="feature-card">
-        <span class="feature-icon">🎯</span>
-        <h3>Perfect Matches</h3>
-        <p>Mood fusion engine combines both inputs for accurate recommendations</p>
+    <div class="bento-card bento-sm">
+        <span class="bento-icon">🎯</span>
+        <h3>Mood Fusion Engine</h3>
+        <p>50/50 blend of face analysis + questionnaire for balanced, accurate results</p>
+    </div>
+    <div class="bento-card bento-wide">
+        <span class="bento-icon">🔄</span>
+        <h3>Dynamic Recommendations</h3>
+        <p>Fresh song & movie suggestions every time — never the same list twice</p>
+        <div class="bento-tag">Always Fresh</div>
     </div>
 </div>
 
@@ -200,7 +208,7 @@
         } catch (err) { analysisLoading.style.display = 'none'; showError('Failed to analyze image.'); }
     }
 
-    const moodEmojis = { happy: '😊', sad: '😢', angry: '😠', neutral: '😐', excited: '🤩', stressed: '😰', romantic: '💕', motivational: '💪', calm: '🧘', energetic: '⚡', surprise: '😲', fear: '😨', disgust: '🤢' };
+    const moodEmojis = { happy: '😊', sad: '😢', angry: '😠', neutral: '😐', excited: '🤩', stressed: '😰', calm: '🧘', surprise: '😲', fear: '😨', disgust: '🤢' };
 
     function showCNNResult(data) {
         document.getElementById('cnnEmoji').textContent = moodEmojis[data.mood] || '🎭';
