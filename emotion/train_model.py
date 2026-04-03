@@ -43,7 +43,7 @@ LOCAL_DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data
 # Hyper-parameters
 IMG_SIZE = 48
 BATCH_SIZE = 64
-EPOCHS = 60
+EPOCHS = 120
 INITIAL_LR = 0.001
 
 
@@ -171,7 +171,7 @@ def train():
     num_classes = len(train_generator.class_indices)
 
     # Resume from saved model if it exists, otherwise build fresh
-    RESUME_EPOCH = 0  # Set to N to resume from epoch N (loads saved model)
+    RESUME_EPOCH = 83  # Set to N to resume from epoch N (loads saved model)
     if RESUME_EPOCH > 0 and os.path.exists(MODEL_PATH):
         print(f"\n🔄 Resuming training from epoch {RESUME_EPOCH}...")
         print(f"   Loading saved model: {MODEL_PATH}")
